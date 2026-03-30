@@ -12,6 +12,7 @@ import { errorHandlerPlugin, requestIdPlugin, authPlugin } from './gateway/middl
 import catalogPlugin from './services/catalog/index.js';
 import searchPlugin from './services/search/index.js';
 import aiPlugin from './services/ai/index.js';
+import userPlugin from './services/user/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
@@ -209,6 +210,9 @@ export async function createServer({
         openaiApiKey: config.ai.openaiApiKey,
       });
     }
+
+    // Register user service (profiles, saved boats, alerts)
+    await server.register(userPlugin, { db });
 
     // Register DB shutdown handler
     shutdownHandlers.push(disconnect);
