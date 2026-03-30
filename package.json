@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "NauticFinder.ai — AI-powered nautical search and discovery platform backend",
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20.0.0"
   },
