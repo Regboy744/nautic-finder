@@ -1,6 +1,7 @@
-import { createServer } from '../../src/server.js';
+import { createServer, type CreateServerOptions } from '../../src/server.js';
 import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from '../../src/config/env.js';
+import { resetLogger } from '../../src/shared/logger/index.js';
 
 /**
  * Builds a minimal valid AppConfig for testing.
@@ -27,6 +28,7 @@ export function createTestConfig(overrides?: Partial<AppConfig>): AppConfig {
     },
     redis: {
       url: 'redis://localhost:6379',
+      keyPrefix: 'nf-test:',
       ...overrides?.redis,
     },
     ai: {
@@ -38,7 +40,13 @@ export function createTestConfig(overrides?: Partial<AppConfig>): AppConfig {
     scraping: {
       proxyUrl: '',
       userAgent: 'NauticFinder/1.0-test',
+      concurrency: 1,
       ...overrides?.scraping,
+    },
+    currency: {
+      exchangeRateApiKey: '',
+      cacheTtlSeconds: 3600,
+      ...overrides?.currency,
     },
     notification: {
       resendApiKey: '',
@@ -54,13 +62,42 @@ export function createTestConfig(overrides?: Partial<AppConfig>): AppConfig {
 }
 
 /**
- * Creates a Fastify test server instance. Call `server.close()` in afterAll/afterEach.
+ * Creates a Fastify test server instance ready for injection.
+ * Call `server.close()` in afterAll/afterEach.
+ * Skips Redis by default in tests to avoid needing a running Redis instance.
  */
 export async function createTestServer(
   configOverrides?: Partial<AppConfig>,
+  serverOptions?: Partial<Omit<CreateServerOptions, 'config'>>,
 ): Promise<FastifyInstance> {
+  // Reset logger singleton between test suites so initLogger works fresh
+  resetLogger();
+
   const config = createTestConfig(configOverrides);
-  const server = await createServer({ config });
+  const server = await createServer({
+    config,
+    skipRedis: true,
+    ...serverOptions,
+  });
   await server.ready();
   return server;
+}
+
+/**
+ * Creates a Fastify test server WITHOUT calling `.ready()`.
+ * Use this when you need to register routes/plugins in the test before injecting.
+ * Call `await server.ready()` yourself after registering routes.
+ */
+export async function createRawTestServer(
+  configOverrides?: Partial<AppConfig>,
+  serverOptions?: Partial<Omit<CreateServerOptions, 'config'>>,
+): Promise<FastifyInstance> {
+  resetLogger();
+
+  const config = createTestConfig(configOverrides);
+  return createServer({
+    config,
+    skipRedis: true,
+    ...serverOptions,
+  });
 }

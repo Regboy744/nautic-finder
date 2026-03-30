@@ -19,6 +19,7 @@ const envSchema = z.object({
 
   // -- Redis --
   REDIS_URL: z.string().min(1, 'REDIS_URL is required').default('redis://localhost:6379'),
+  REDIS_KEY_PREFIX: z.string().default('nf:'),
 
   // -- AI Services --
   GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
@@ -28,6 +29,12 @@ const envSchema = z.object({
   // -- Scraping --
   PROXY_URL: z.string().optional().default(''),
   SCRAPER_USER_AGENT: z.string().default('NauticFinder/1.0'),
+  SCRAPER_CONCURRENCY: z.coerce.number().int().positive().default(3),
+
+  // -- Currency --
+  EXCHANGE_RATE_API_KEY: z.string().optional().default(''),
+  /** TTL in seconds for cached exchange rates. Default: 6 hours. */
+  EXCHANGE_RATE_CACHE_TTL: z.coerce.number().int().positive().default(21_600),
 
   // -- Notifications --
   RESEND_API_KEY: z.string().optional().default(''),
@@ -63,6 +70,7 @@ export interface AppConfig {
   };
   redis: {
     url: string;
+    keyPrefix: string;
   };
   ai: {
     geminiApiKey: string;
@@ -72,6 +80,11 @@ export interface AppConfig {
   scraping: {
     proxyUrl: string;
     userAgent: string;
+    concurrency: number;
+  };
+  currency: {
+    exchangeRateApiKey: string;
+    cacheTtlSeconds: number;
   };
   notification: {
     resendApiKey: string;
@@ -118,6 +131,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     redis: {
       url: e.REDIS_URL,
+      keyPrefix: e.REDIS_KEY_PREFIX,
     },
     ai: {
       geminiApiKey: e.GEMINI_API_KEY,
@@ -127,6 +141,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     scraping: {
       proxyUrl: e.PROXY_URL,
       userAgent: e.SCRAPER_USER_AGENT,
+      concurrency: e.SCRAPER_CONCURRENCY,
+    },
+    currency: {
+      exchangeRateApiKey: e.EXCHANGE_RATE_API_KEY,
+      cacheTtlSeconds: e.EXCHANGE_RATE_CACHE_TTL,
     },
     notification: {
       resendApiKey: e.RESEND_API_KEY,

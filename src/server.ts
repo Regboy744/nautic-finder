@@ -5,10 +5,15 @@ import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { type AppConfig } from './config/env.js';
+import { initLogger } from './shared/logger/index.js';
+import { createRedisClient, checkRedisHealth, disconnectRedis } from './shared/redis/client.js';
+import { errorHandlerPlugin, requestIdPlugin, authPlugin } from './gateway/middleware/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
   config: AppConfig;
+  /** Skip Redis connection (useful for tests that don't need it). */
+  skipRedis?: boolean;
 }
 
 /**
@@ -16,7 +21,16 @@ export interface CreateServerOptions {
  * Registers all plugins, middleware, and routes.
  * Does NOT start listening — call `server.listen()` separately.
  */
-export async function createServer({ config }: CreateServerOptions): Promise<FastifyInstance> {
+export async function createServer({
+  config,
+  skipRedis,
+}: CreateServerOptions): Promise<FastifyInstance> {
+  // Initialize the shared Pino logger singleton (used by service loggers)
+  initLogger({
+    level: config.app.logLevel,
+    isDevelopment: config.app.isDevelopment,
+  });
+
   const server = Fastify({
     logger: {
       level: config.app.logLevel,
@@ -28,7 +42,15 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
     disableRequestLogging: config.app.isTest,
   });
 
-  // --- Security & CORS ---
+  // --- Gateway Middleware (order matters) ---
+
+  // 1. Request-ID propagation (adds X-Request-ID to responses)
+  await server.register(requestIdPlugin);
+
+  // 2. Error handler (catches all errors, returns consistent JSON)
+  await server.register(errorHandlerPlugin);
+
+  // 3. Security & CORS
   await server.register(helmet, {
     contentSecurityPolicy: false, // Disabled for Swagger UI compatibility
   });
@@ -40,7 +62,7 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
     credentials: true,
   });
 
-  // --- Rate Limiting ---
+  // 4. Rate Limiting
   await server.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
@@ -48,6 +70,27 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
       return request.ip;
     },
   });
+
+  // 5. Auth (Supabase JWT verification — decorates server.authenticate)
+  await server.register(authPlugin, {
+    supabaseUrl: config.database.supabaseUrl,
+    jwtSecret: config.auth.jwtSecret,
+  });
+
+  // --- Redis ---
+  if (!skipRedis) {
+    const redis = createRedisClient({
+      url: config.redis.url,
+      keyPrefix: config.redis.keyPrefix,
+    });
+
+    // Connect Redis (lazy connect mode)
+    try {
+      await redis.connect();
+    } catch (err) {
+      server.log.error({ err }, 'Redis initial connection failed — continuing without cache');
+    }
+  }
 
   // --- API Documentation ---
   await server.register(swagger, {
@@ -96,16 +139,20 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
             timestamp: { type: 'string' },
             version: { type: 'string' },
             uptime: { type: 'number' },
+            redis: { type: 'string' },
           },
         },
       },
     },
     handler: async (_request, _reply) => {
+      const redisHealthy = skipRedis ? null : await checkRedisHealth();
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
         version: '0.1.0',
         uptime: process.uptime(),
+        redis: skipRedis ? 'skipped' : redisHealthy ? 'connected' : 'disconnected',
       };
     },
   });
@@ -121,6 +168,11 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
     shutdownHandlers.push(handler);
   });
 
+  // Register Redis shutdown
+  if (!skipRedis) {
+    shutdownHandlers.push(disconnectRedis);
+  }
+
   server.addHook('onClose', async () => {
     server.log.info('Running shutdown handlers...');
     for (const handler of shutdownHandlers) {
@@ -132,6 +184,9 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
     }
   });
 
+  // Store config on the server for access by plugins/services
+  server.decorate('config', config);
+
   return server;
 }
 
@@ -139,5 +194,6 @@ export async function createServer({ config }: CreateServerOptions): Promise<Fas
 declare module 'fastify' {
   interface FastifyInstance {
     addShutdownHandler: (handler: () => Promise<void>) => void;
+    config: AppConfig;
   }
 }

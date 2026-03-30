@@ -64,7 +64,11 @@ describe('loadConfig', () => {
     expect(config.ai.anthropicApiKey).toBe('');
     expect(config.ai.openaiApiKey).toBe('');
     expect(config.scraping.proxyUrl).toBe('');
+    expect(config.scraping.concurrency).toBe(3);
     expect(config.notification.resendApiKey).toBe('');
+    expect(config.redis.keyPrefix).toBe('nf:');
+    expect(config.currency.exchangeRateApiKey).toBe('');
+    expect(config.currency.cacheTtlSeconds).toBe(21_600);
   });
 
   it('coerces PORT from string to number', () => {
