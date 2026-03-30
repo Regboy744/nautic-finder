@@ -5,7 +5,6 @@ import {
   integer,
   numeric,
   timestamp,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -82,7 +81,5 @@ export const boatModels = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [
-    uniqueIndex('boat_models_make_model_idx').on(table.make, table.modelName),
-  ],
+  // Indexes are managed in a separate migration file for easier maintenance.
 );

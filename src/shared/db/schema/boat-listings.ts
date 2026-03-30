@@ -7,7 +7,6 @@ import {
   timestamp,
   boolean,
   jsonb,
-  index,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { boatModels } from './boat-models.js';
@@ -124,20 +123,5 @@ export const boatListings = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [
-    index('listings_boat_type_idx').on(table.boatType),
-    index('listings_price_eur_idx').on(table.priceNormalizedEur),
-    index('listings_year_idx').on(table.year),
-    index('listings_country_idx').on(table.country),
-    index('listings_make_idx').on(table.make),
-    index('listings_length_ft_idx').on(table.lengthFt),
-    index('listings_is_active_idx').on(table.isActive),
-    index('listings_type_price_active_idx').on(
-      table.boatType,
-      table.priceNormalizedEur,
-      table.isActive,
-    ),
-    index('listings_fingerprint_idx').on(table.fingerprint),
-    index('listings_source_url_idx').on(table.sourceUrl),
-  ],
+  // Indexes are managed in a separate migration file for easier maintenance.
 );

@@ -1,4 +1,4 @@
-import { pgTable, uuid, numeric, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, numeric, timestamp } from 'drizzle-orm/pg-core';
 import { boatModels } from './boat-models.js';
 
 /**
@@ -45,5 +45,4 @@ export const calculatedRatios = pgTable(
     // -- Metadata --
     calculatedAt: timestamp('calculated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [uniqueIndex('calculated_ratios_model_id_idx').on(table.modelId)],
 );
