@@ -23,14 +23,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "supabase:init": "supabase init",
-    "supabase:login": "supabase login",
-    "supabase:link": "supabase link --project-ref aadlgwyczuvnxdwjdbcx",
-    "db:migrate:new": "supabase migration new",
-    "db:reset": "supabase db reset --linked",
+    "supabase:init": "pnpm exec supabase init",
+    "supabase:login": "pnpm exec supabase login",
+    "supabase:link": "pnpm exec supabase link --project-ref aadlgwyczuvnxdwjdbcx",
+    "db:migrate:new": "pnpm exec supabase migration new",
+    "db:reset": "pnpm exec supabase db reset --linked",
     "db:seed": "node --env-file=.env",
     "db:seed:all": "./database/util/seed-runner.sh",
-    "db:types": "supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/types/shared/database.types.ts",
+    "db:types": "pnpm exec supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/types/shared/database.types.ts",
     "prepare": "husky"
   },
   "keywords": [
@@ -77,10 +77,18 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
+    "supabase": "^2.84.5",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "supabase",
+      "msgpackr-extract"
+    ]
   }
 }

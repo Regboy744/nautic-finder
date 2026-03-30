@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: false
+  msgpackr-extract: false
+  supabase: false
+approveBuilds: esbuild,supabase,msgpackr-extract
