@@ -22,6 +22,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "supabase:init": "supabase init",
+    "supabase:login": "supabase login",
+    "supabase:link": "supabase link --project-ref aadlgwyczuvnxdwjdbcx",
+    "db:migrate:new": "supabase migration new",
+    "db:reset": "supabase db reset --linked",
+    "db:seed": "node --env-file=.env",
+    "db:seed:all": "./database/util/seed-runner.sh",
+    "db:types": "supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/types/shared/database.types.ts",
     "prepare": "husky"
   },
   "keywords": [
