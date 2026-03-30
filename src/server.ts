@@ -10,6 +10,7 @@ import { createRedisClient, checkRedisHealth, disconnectRedis } from './shared/r
 import { createDatabase } from './shared/db/client.js';
 import { errorHandlerPlugin, requestIdPlugin, authPlugin } from './gateway/middleware/index.js';
 import catalogPlugin from './services/catalog/index.js';
+import searchPlugin from './services/search/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
@@ -184,6 +185,19 @@ export async function createServer({
 
     // Register catalog service (listings, models, brokers, market-stats)
     await server.register(catalogPlugin, { db });
+
+    // Register search service (filter + vector search + scoring + cache)
+    // Pass Redis client if available, otherwise search works without caching
+    let redisForSearch = null;
+    if (!skipRedis) {
+      try {
+        const { getRedisClient } = await import('./shared/redis/client.js');
+        redisForSearch = getRedisClient();
+      } catch {
+        // Redis not initialized — search works without caching
+      }
+    }
+    await server.register(searchPlugin, { db, redis: redisForSearch });
 
     // Register DB shutdown handler
     shutdownHandlers.push(disconnect);
