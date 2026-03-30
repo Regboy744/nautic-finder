@@ -30,7 +30,7 @@
     "db:reset": "pnpm exec supabase db reset --linked",
     "db:seed": "node --env-file=.env",
     "db:seed:all": "./database/util/seed-runner.sh",
-    "db:types": "pnpm exec supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/shared/db/database.types.ts",
+    "db:types": "pnpm exec supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/shared/db/generated/database.types.ts",
     "prepare": "husky"
   },
   "keywords": [
