@@ -11,6 +11,7 @@ import { createDatabase } from './shared/db/client.js';
 import { errorHandlerPlugin, requestIdPlugin, authPlugin } from './gateway/middleware/index.js';
 import catalogPlugin from './services/catalog/index.js';
 import searchPlugin from './services/search/index.js';
+import aiPlugin from './services/ai/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
@@ -198,6 +199,16 @@ export async function createServer({
       }
     }
     await server.register(searchPlugin, { db, redis: redisForSearch });
+
+    // Register AI service (filter extraction, embeddings, reasoning)
+    // Only if at least one AI key is configured
+    if (config.ai.geminiApiKey) {
+      await server.register(aiPlugin, {
+        geminiApiKey: config.ai.geminiApiKey,
+        anthropicApiKey: config.ai.anthropicApiKey,
+        openaiApiKey: config.ai.openaiApiKey,
+      });
+    }
 
     // Register DB shutdown handler
     shutdownHandlers.push(disconnect);
