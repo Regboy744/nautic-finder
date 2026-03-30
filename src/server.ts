@@ -14,6 +14,7 @@ import searchPlugin from './services/search/index.js';
 import aiPlugin from './services/ai/index.js';
 import userPlugin from './services/user/index.js';
 import conversationPlugin from './services/conversation/index.js';
+import notificationPlugin from './services/notification/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
@@ -227,6 +228,15 @@ export async function createServer({
         tokenBudget: null,
       },
     });
+
+    // Register notification service (alert matching + email delivery)
+    if (config.notification.resendApiKey) {
+      await server.register(notificationPlugin, {
+        db,
+        resendApiKey: config.notification.resendApiKey,
+        redisUrl: config.redis.url,
+      });
+    }
 
     // Register DB shutdown handler
     shutdownHandlers.push(disconnect);
