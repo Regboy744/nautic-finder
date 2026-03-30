@@ -25,6 +25,9 @@ coverage/
 # Drizzle
 drizzle/meta/
 
+# Supabase local
+supabase/.temp/
+
 # Playwright
 playwright-browsers/
 
