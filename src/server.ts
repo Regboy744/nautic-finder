@@ -13,6 +13,7 @@ import catalogPlugin from './services/catalog/index.js';
 import searchPlugin from './services/search/index.js';
 import aiPlugin from './services/ai/index.js';
 import userPlugin from './services/user/index.js';
+import conversationPlugin from './services/conversation/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
@@ -213,6 +214,19 @@ export async function createServer({
 
     // Register user service (profiles, saved boats, alerts)
     await server.register(userPlugin, { db });
+
+    // Register conversation service (chat pipeline — depends on AI + search)
+    // Pipeline deps are null-safe — each step degrades gracefully if unavailable
+    await server.register(conversationPlugin, {
+      db,
+      pipelineDeps: {
+        filterExtractor: null, // Wired when AI service exposes it
+        openAi: null,
+        reasoningEngine: null,
+        searchService: null,
+        tokenBudget: null,
+      },
+    });
 
     // Register DB shutdown handler
     shutdownHandlers.push(disconnect);
