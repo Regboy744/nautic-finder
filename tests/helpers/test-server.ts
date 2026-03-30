@@ -77,6 +77,7 @@ export async function createTestServer(
   const server = await createServer({
     config,
     skipRedis: true,
+    skipDatabase: true,
     ...serverOptions,
   });
   await server.ready();
@@ -98,6 +99,7 @@ export async function createRawTestServer(
   return createServer({
     config,
     skipRedis: true,
+    skipDatabase: true,
     ...serverOptions,
   });
 }

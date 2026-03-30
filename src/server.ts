@@ -7,13 +7,17 @@ import swaggerUi from '@fastify/swagger-ui';
 import { type AppConfig } from './config/env.js';
 import { initLogger } from './shared/logger/index.js';
 import { createRedisClient, checkRedisHealth, disconnectRedis } from './shared/redis/client.js';
+import { createDatabase } from './shared/db/client.js';
 import { errorHandlerPlugin, requestIdPlugin, authPlugin } from './gateway/middleware/index.js';
+import catalogPlugin from './services/catalog/index.js';
 
 /** Options for creating the Fastify application */
 export interface CreateServerOptions {
   config: AppConfig;
   /** Skip Redis connection (useful for tests that don't need it). */
   skipRedis?: boolean;
+  /** Skip database connection and catalog service (useful for tests). */
+  skipDatabase?: boolean;
 }
 
 /**
@@ -24,6 +28,7 @@ export interface CreateServerOptions {
 export async function createServer({
   config,
   skipRedis,
+  skipDatabase,
 }: CreateServerOptions): Promise<FastifyInstance> {
   // Initialize the shared Pino logger singleton (used by service loggers)
   initLogger({
@@ -171,6 +176,17 @@ export async function createServer({
   // Register Redis shutdown
   if (!skipRedis) {
     shutdownHandlers.push(disconnectRedis);
+  }
+
+  // --- Database & Services ---
+  if (!skipDatabase) {
+    const { db, disconnect } = createDatabase({ url: config.database.url });
+
+    // Register catalog service (listings, models, brokers, market-stats)
+    await server.register(catalogPlugin, { db });
+
+    // Register DB shutdown handler
+    shutdownHandlers.push(disconnect);
   }
 
   server.addHook('onClose', async () => {
