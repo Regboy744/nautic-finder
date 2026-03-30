@@ -28,8 +28,7 @@
     "supabase:link": "pnpm exec supabase link --project-ref aadlgwyczuvnxdwjdbcx",
     "db:migrate:new": "pnpm exec supabase migration new",
     "db:reset": "pnpm exec supabase db reset --linked",
-    "db:seed": "node --env-file=.env",
-    "db:seed:all": "./database/util/seed-runner.sh",
+    "db:seed": "tsx scripts/seed.ts",
     "db:types": "pnpm exec supabase gen types typescript --project-id aadlgwyczuvnxdwjdbcx > ./src/shared/db/generated/database.types.ts",
     "prepare": "husky"
   },
