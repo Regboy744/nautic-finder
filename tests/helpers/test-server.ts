@@ -58,6 +58,21 @@ export function createTestConfig(overrides?: Partial<AppConfig>): AppConfig {
       jwtSecret: 'test-jwt-secret-at-least-32-characters-long',
       ...overrides?.auth,
     },
+    proxy: {
+      enabled: false,
+      mode: 'ip_whitelist',
+      host: 'gate.decodo.com',
+      port: 7000,
+      username: '',
+      password: '',
+      protocol: 'http',
+      country: '',
+      sessionStrategy: 'rotate',
+      sessionDurationMin: 30,
+      sessionIdStrategy: 'per_job',
+      timeoutMs: 30000,
+      ...overrides?.proxy,
+    },
   };
 }
 

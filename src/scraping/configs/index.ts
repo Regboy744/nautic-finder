@@ -1,5 +1,5 @@
 import type { BrokerConfig } from '../types.js';
-import { yachtworldConfig } from './yachtworld.config.js';
+import { yachtworldConfig } from '../brokers/yachtworld/config.js';
 
 /**
  * Registry of all broker scraper configurations.

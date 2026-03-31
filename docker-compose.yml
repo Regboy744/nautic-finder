@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -32,6 +30,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    container_name: nauticfinder-scraper
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      BROWSER_PORT: 3001
+    # Chromium needs more shared memory than Docker's default 64MB
+    shm_size: '1gb'
 
 volumes:
   postgres_data:

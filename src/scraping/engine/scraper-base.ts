@@ -83,14 +83,17 @@ export abstract class ScraperBase {
   }
 
   /**
-   * Enforces rate limiting between requests.
+   * Enforces rate limiting between requests with human-like jitter.
+   * Adds random variation (0–50% of delayMs) to avoid metronomic patterns.
    */
   private async enforceRateLimit(): Promise<void> {
     const { delayMs } = this.config.rateLimit;
+    const jitter = Math.floor(Math.random() * delayMs * 0.5);
+    const targetDelay = delayMs + jitter;
     const elapsed = Date.now() - this.lastRequestTime;
 
-    if (elapsed < delayMs) {
-      const waitMs = delayMs - elapsed;
+    if (elapsed < targetDelay) {
+      const waitMs = targetDelay - elapsed;
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
 
@@ -110,7 +113,9 @@ export abstract class ScraperBase {
         return await this.fetchPage(url);
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt), 30_000);
+        const baseBackoff = Math.min(1000 * Math.pow(2, attempt), 30_000);
+        const jitter = Math.floor(Math.random() * baseBackoff * 0.3);
+        const backoffMs = baseBackoff + jitter;
         this.log.warn({ url, attempt, maxRetries, backoffMs }, 'Fetch failed, retrying');
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }

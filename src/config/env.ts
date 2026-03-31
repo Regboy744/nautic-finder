@@ -31,6 +31,23 @@ const envSchema = z.object({
   SCRAPER_USER_AGENT: z.string().default('NauticFinder/1.0'),
   SCRAPER_CONCURRENCY: z.coerce.number().int().positive().default(3),
 
+  // -- Decodo Proxy --
+  DECODO_PROXY_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+  DECODO_PROXY_MODE: z.enum(['ip_whitelist', 'userpass']).default('ip_whitelist'),
+  DECODO_PROXY_HOST: z.string().default('gate.decodo.com'),
+  DECODO_PROXY_PORT: z.coerce.number().int().positive().default(7000),
+  DECODO_PROXY_USERNAME: z.string().default(''),
+  DECODO_PROXY_PASSWORD: z.string().default(''),
+  DECODO_PROXY_PROTOCOL: z.enum(['http', 'https']).default('http'),
+  DECODO_PROXY_COUNTRY: z.string().default(''),
+  DECODO_PROXY_SESSION_STRATEGY: z.enum(['rotate', 'sticky']).default('rotate'),
+  DECODO_PROXY_SESSION_DURATION_MIN: z.coerce.number().int().positive().default(30),
+  DECODO_PROXY_SESSION_ID_STRATEGY: z.enum(['per_job', 'per_broker']).default('per_job'),
+  DECODO_PROXY_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+
   // -- Currency --
   EXCHANGE_RATE_API_KEY: z.string().optional().default(''),
   /** TTL in seconds for cached exchange rates. Default: 6 hours. */
@@ -81,6 +98,20 @@ export interface AppConfig {
     proxyUrl: string;
     userAgent: string;
     concurrency: number;
+  };
+  proxy: {
+    enabled: boolean;
+    mode: 'ip_whitelist' | 'userpass';
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    protocol: 'http' | 'https';
+    country: string;
+    sessionStrategy: 'rotate' | 'sticky';
+    sessionDurationMin: number;
+    sessionIdStrategy: 'per_job' | 'per_broker';
+    timeoutMs: number;
   };
   currency: {
     exchangeRateApiKey: string;
@@ -154,6 +185,20 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     auth: {
       jwtSecret: e.JWT_SECRET,
+    },
+    proxy: {
+      enabled: e.DECODO_PROXY_ENABLED,
+      mode: e.DECODO_PROXY_MODE,
+      host: e.DECODO_PROXY_HOST,
+      port: e.DECODO_PROXY_PORT,
+      username: e.DECODO_PROXY_USERNAME,
+      password: e.DECODO_PROXY_PASSWORD,
+      protocol: e.DECODO_PROXY_PROTOCOL,
+      country: e.DECODO_PROXY_COUNTRY,
+      sessionStrategy: e.DECODO_PROXY_SESSION_STRATEGY,
+      sessionDurationMin: e.DECODO_PROXY_SESSION_DURATION_MIN,
+      sessionIdStrategy: e.DECODO_PROXY_SESSION_ID_STRATEGY,
+      timeoutMs: e.DECODO_PROXY_TIMEOUT_MS,
     },
   };
 }
