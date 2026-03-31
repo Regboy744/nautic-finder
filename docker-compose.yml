@@ -39,10 +39,8 @@ services:
     restart: unless-stopped
     ports:
       - '3001:3001'
-    env_file: .env
     environment:
       BROWSER_PORT: 3001
-      PROXY_SERVER: https://${DECODO_PROXY_HOST:-ie.decodo.com}:${DECODO_PROXY_PORT:-24001}
     # Chromium needs more shared memory than Docker's default 64MB
     shm_size: '1gb'
 

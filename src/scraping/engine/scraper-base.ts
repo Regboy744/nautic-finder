@@ -104,7 +104,7 @@ export abstract class ScraperBase {
   /**
    * Fetches a URL with retry logic and exponential backoff.
    */
-  protected async fetchWithRetry(url: string, maxRetries = 3): Promise<string> {
+  protected async fetchWithRetry(url: string, maxRetries = 5): Promise<string> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

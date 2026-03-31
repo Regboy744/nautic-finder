@@ -66,4 +66,11 @@ describe('normalizePrice', () => {
   it('detected currency overrides fallback', () => {
     expect(normalizePrice('$85000', 'EUR')).toEqual({ price: '85000', currency: 'USD' });
   });
+
+  it('handles concatenated prices from HTML text nodes (takes first price only)', () => {
+    // YachtWorld renders current + original/was price in the same element
+    expect(normalizePrice('$224,000$258,676')).toEqual({ price: '224000', currency: 'USD' });
+    expect(normalizePrice('$359,000$414,575')).toEqual({ price: '359000', currency: 'USD' });
+    expect(normalizePrice('kr1,745,020151')).toEqual({ price: '1745020', currency: 'SEK' });
+  });
 });

@@ -28,8 +28,8 @@
     "supabase:link": "pnpm exec supabase link --project-ref aadlgwyczuvnxdwjdbcx",
     "db:migrate:new": "pnpm exec supabase migration new",
     "db:reset": "pnpm exec supabase db reset --linked",
-    "scrape:test": "node --env-file=.env --import=tsx/esm scripts/test-scrape.ts",
-    "scrape:run": "node --env-file=.env --import=tsx/esm scripts/run-scrape.ts",
+    "scrape:test": "docker compose restart scraper && sleep 4 && node --env-file=.env --import=tsx/esm scripts/test-scrape.ts",
+    "scrape:run": "docker compose restart scraper && sleep 4 && node --env-file=.env --import=tsx/esm scripts/run-scrape.ts",
     "prepare": "husky"
   },
   "keywords": [

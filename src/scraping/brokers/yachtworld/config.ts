@@ -43,8 +43,7 @@ export const yachtworldConfig: BrokerConfig = {
     brokerPhone: '[data-e2e="phoneDisplayer"] a[href^="tel:"]',
 
     pagination: {
-      nextButton: '.pagination a.next',
-      pageUrlTemplate: 'https://www.yachtworld.com/boats-for-sale?page={page}',
+      pageUrlTemplate: 'https://www.yachtworld.com/boats-for-sale/page-{page}/',
       maxPages: 100,
     },
   },

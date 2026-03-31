@@ -3,7 +3,7 @@
  *
  * Usage:
  *   docker compose up scraper -d --build
- *   pnpm scrape:run                      # 1 page (default)
+ *   pnpm scrape:run                      # 3 pages (default)
  *   pnpm scrape:run -- --pages 5         # 5 pages
  *
  * Flow: Playwright (Docker) → extract → normalize → upsert to Supabase
@@ -57,12 +57,13 @@ class RunnableScraper extends PlaywrightScraper {
 const log = pino({ level: 'info', transport: { target: 'pino-pretty' } });
 
 // Parse CLI args
+// Default: 3 pages. Use --pages 0 for all pages.
 const maxPages = (() => {
   const idx = process.argv.indexOf('--pages');
   if (idx !== -1 && process.argv[idx + 1]) {
     return parseInt(process.argv[idx + 1], 10);
   }
-  return 1;
+  return 3;
 })();
 
 function buildConfig(): AppConfig {
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  log.info({ maxPages }, '=== NauticFinder Scrape & Save ===');
+  log.info({ maxPages: maxPages === 0 ? 'all' : maxPages }, '=== NauticFinder Scrape & Save ===');
 
   // 1. Connect to database
   log.info('Connecting to database...');
@@ -174,20 +175,24 @@ async function main(): Promise<void> {
   const wsEndpoint = discoverWsEndpoint();
   log.info({ wsEndpoint }, 'Browser endpoint discovered');
 
+  // maxPages=0 means use broker's default (all pages)
+  const effectiveMaxPages =
+    maxPages > 0 ? maxPages : (yachtworldConfig.selectors.pagination?.maxPages ?? 100);
+
   const scraperConfig: BrokerConfig = {
     ...yachtworldConfig,
     rateLimit: { ...yachtworldConfig.rateLimit, delayMs: 1_500 },
     selectors: {
       ...yachtworldConfig.selectors,
-      pagination: { ...yachtworldConfig.selectors.pagination, maxPages },
+      pagination: { ...yachtworldConfig.selectors.pagination, maxPages: effectiveMaxPages },
     },
   };
 
   const scraper = new RunnableScraper(scraperConfig, log, { wsEndpoint, proxyUrl });
 
   try {
-    // 5. Collect listing URLs
-    log.info('Collecting listing URLs...');
+    // 5. Collect listing URLs (limited pages)
+    log.info({ effectiveMaxPages }, 'Collecting listing URLs...');
     const urls = await scraper.listUrls();
     log.info({ found: urls.length }, 'Listing URLs collected');
 
@@ -196,7 +201,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    // 6. Scrape + normalize + upsert each listing
+    // 6. Scrape each detail page, normalize, save to DB immediately
     let newCount = 0;
     let updatedCount = 0;
     let errorCount = 0;
@@ -204,48 +209,35 @@ async function main(): Promise<void> {
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       try {
-        log.info({ progress: `${i + 1}/${urls.length}`, url }, 'Scraping detail page');
+        log.info({ progress: `${i + 1}/${urls.length}` }, 'Scraping');
 
         const raw = await scraper.detail(url);
         if (!raw) {
-          log.warn({ url }, 'No data extracted, skipping');
           errorCount++;
           continue;
         }
 
-        // Normalize
         const normalized = normalizeListing(raw);
-
-        // Upsert to database
         const { listing, isNew } = await listingsService.upsert(
           normalized as Parameters<typeof listingsService.upsert>[0],
         );
 
         if (isNew) {
           newCount++;
-          log.info(
-            { id: listing.id, title: listing.title, price: listing.price },
-            'NEW listing saved',
-          );
+          log.info({ id: listing.id, title: listing.title, price: listing.price }, 'SAVED');
         } else {
           updatedCount++;
-          log.debug({ id: listing.id, title: listing.title }, 'Listing updated');
+          log.info({ id: listing.id }, 'UPDATED');
         }
       } catch (err) {
         errorCount++;
         const msg = err instanceof Error ? err.message : String(err);
-        log.error({ url, error: msg }, 'Failed to process listing');
+        log.error({ url, error: msg }, 'FAILED');
       }
     }
 
-    // 7. Summary
     log.info(
-      {
-        total: urls.length,
-        new: newCount,
-        updated: updatedCount,
-        errors: errorCount,
-      },
+      { total: urls.length, new: newCount, updated: updatedCount, errors: errorCount },
       '=== Scrape complete ===',
     );
   } finally {

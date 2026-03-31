@@ -117,6 +117,14 @@ function parseNumericString(raw: string): number | null {
   // Remove any remaining non-numeric chars except . and ,
   cleaned = cleaned.replace(/[^0-9.,\-]/g, '');
 
+  // Detect concatenated prices: e.g. "224,000258,676" (from HTML text capturing multiple
+  // price elements). Pattern: a valid thousands-comma-number immediately followed by more
+  // digits with no separator. Truncate to the first price only.
+  const concatMatch = cleaned.match(/^(\d{1,3}(?:,\d{3})+)\d/);
+  if (concatMatch) {
+    cleaned = concatMatch[1];
+  }
+
   if (cleaned.length === 0) return null;
 
   // Determine if comma or period is the decimal separator

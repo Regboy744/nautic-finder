@@ -1,28 +1,22 @@
 /**
  * Playwright-based scraper for JS-rendered / Cloudflare-protected sites.
  *
- * Connects to a remote Chromium instance running in Docker via WebSocket.
- * The browser in Docker has the proxy injected via --proxy-server flag.
- * This scraper authenticates with the proxy per-page and handles
- * Cloudflare JS challenges by waiting for the page to fully render.
+ * Connects to a remote Chromium in Docker (no proxy at browser level).
+ * Proxy is set per-context so each run gets its own IP.
+ * Docker container must be restarted between runs for a fresh browser.
  */
 
 import * as cheerio from 'cheerio';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { Logger } from 'pino';
 import type { BrokerConfig, RawListingData } from '../types.js';
-import type { BrowserProfile } from '../stealth/headers.js';
-import { getRandomProfile } from '../stealth/headers.js';
+import { getRandomProfile, type BrowserProfile } from '../stealth/index.js';
 import { ScraperBase } from './scraper-base.js';
 
-/** Anti-bot detection patterns in page content. */
-const CHALLENGE_PATTERNS =
-  /captcha|challenge-platform|just.a" moment|verify you are human|access.denied|cf-mitigated/i;
-
 export interface PlaywrightScraperOptions {
-  /** WebSocket endpoint to connect to the Docker browser. */
+  /** WebSocket endpoint for the Docker browser. */
   wsEndpoint: string;
-  /** Full proxy URL with auth for context-level proxy (e.g. https://user:pass@host:port). */
+  /** Full proxy URL (e.g. https://user:pass@host:port). */
   proxyUrl?: string;
 }
 
@@ -39,54 +33,49 @@ export class PlaywrightScraper extends ScraperBase {
     this.wsEndpoint = options.wsEndpoint;
     this.proxyUrl = options.proxyUrl;
     this.browserProfile = getRandomProfile();
-    this.log.debug(
-      { profileId: this.browserProfile.id, wsEndpoint: this.wsEndpoint },
-      'PlaywrightScraper initialized',
-    );
   }
 
-  /**
-   * Connect to the remote browser and create a stealth context.
-   */
+  // ── Context management (one context per scrape run) ──
+
+  private async resetContext(): Promise<void> {
+    if (this.context) {
+      await this.context.close().catch(() => {});
+      this.context = undefined;
+    }
+  }
+
   private async ensureContext(): Promise<BrowserContext> {
     if (this.context) return this.context;
 
-    this.log.info({ wsEndpoint: this.wsEndpoint }, 'Connecting to remote browser');
-    this.browser = await chromium.connect(this.wsEndpoint);
-
-    const ua = this.browserProfile.headers['User-Agent'];
+    if (!this.browser) {
+      this.log.info({ wsEndpoint: this.wsEndpoint }, 'Connecting to remote browser');
+      this.browser = await chromium.connect(this.wsEndpoint);
+    }
 
     const contextOptions: Parameters<Browser['newContext']>[0] = {
-      userAgent: ua,
+      userAgent: this.browserProfile.headers['User-Agent'],
       viewport: { width: 1920, height: 1080 },
       locale: 'en-US',
       timezoneId: 'America/New_York',
       bypassCSP: true,
     };
 
-    // Proxy is set at the browser level (--proxy-server in Docker).
-    // We provide credentials via httpCredentials so every request
-    // sends the Proxy-Authorization header.
     if (this.proxyUrl) {
       const parsed = new URL(this.proxyUrl);
-      contextOptions.httpCredentials = {
+      contextOptions.proxy = {
+        server: `${parsed.protocol}//${parsed.hostname}:${parsed.port}`,
         username: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
       };
-      this.log.info(
-        { proxyServer: `${parsed.hostname}:${parsed.port}` },
-        'Proxy credentials configured for context',
-      );
+      this.log.info({ proxyServer: `${parsed.hostname}:${parsed.port}` }, 'Proxy configured');
     }
 
     this.context = await this.browser.newContext(contextOptions);
 
-    // Block heavy resources
     await this.context.route('**/*.{png,jpg,jpeg,gif,svg,webp,woff,woff2,ttf,eot}', (route) =>
       route.abort(),
     );
 
-    // Anti-detection: override navigator.webdriver
     await this.context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
@@ -94,17 +83,12 @@ export class PlaywrightScraper extends ScraperBase {
     return this.context;
   }
 
-  /**
-   * Create a new page with proxy authentication and stealth headers.
-   */
   private async createPage(): Promise<Page> {
     const ctx = await this.ensureContext();
     const page = await ctx.newPage();
 
-    // Set extra headers matching our browser profile
     const extraHeaders: Record<string, string> = {};
     for (const [key, value] of Object.entries(this.browserProfile.headers)) {
-      // Skip headers that Chromium sets automatically
       if (['User-Agent', 'Accept-Encoding', 'Connection'].includes(key)) continue;
       extraHeaders[key] = value;
     }
@@ -113,97 +97,63 @@ export class PlaywrightScraper extends ScraperBase {
     return page;
   }
 
-  /**
-   * Navigate to a URL, wait for Cloudflare challenge to resolve,
-   * and return the rendered HTML.
-   */
+  // ── Page fetching ──
+
   protected async fetchPage(url: string): Promise<string> {
     const page = await this.createPage();
 
     try {
-      // Set referrer
       const referer =
         this.lastPageUrl ??
         `https://www.google.com/search?q=${encodeURIComponent(new URL(url).hostname)}`;
 
-      this.log.debug({ url, referer }, 'Navigating');
-
-      // Navigate — Cloudflare may serve a JS challenge (403) first.
-      // The browser executes the challenge JS, gets cf_clearance cookie,
-      // then the real page loads. We wait for real content to appear.
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
-        timeout: 60_000,
+        timeout: 30_000,
         referer,
       });
 
-      // Wait for real content to appear.
-      // Strategy: try to find a known selector that only exists on the real page.
-      // If not found, assume Cloudflare challenge and wait for it to resolve.
+      // Wait for real content (up to 15s for Cloudflare challenge to resolve)
       const contentSelector = this.config.selectors.listingCard || 'body';
-      const maxWaitMs = 45_000;
-      const startTime = Date.now();
-      let foundContent = false;
+      const maxWaitMs = 15_000;
+      const start = Date.now();
+      let found = false;
 
-      while (Date.now() - startTime < maxWaitMs) {
-        // Check if real content is present
-        const elementCount = await page.locator(contentSelector).count();
-        if (elementCount > 0) {
-          foundContent = true;
+      while (Date.now() - start < maxWaitMs) {
+        if ((await page.locator(contentSelector).count()) > 0) {
+          found = true;
           break;
         }
-
-        // Also accept detail page content (title selector)
         if (this.config.selectors.title) {
-          const titleCount = await page.locator(this.config.selectors.title).count();
-          if (titleCount > 0) {
-            foundContent = true;
+          if ((await page.locator(this.config.selectors.title).count()) > 0) {
+            found = true;
             break;
           }
         }
-
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        this.log.info(
-          { url, elapsed: `${elapsed}s`, maxWait: `${maxWaitMs / 1000}s` },
-          'Waiting for page content (possible Cloudflare challenge)...',
-        );
-
-        // Wait for navigation (challenge redirect) or a short timeout
         try {
-          await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8_000 });
+          await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 3_000 });
         } catch {
-          // No navigation — wait a bit for in-place JS rendering
-          await page.waitForTimeout(2_000 + Math.random() * 2_000);
-        }
-
-        try {
-          await page.waitForLoadState('networkidle', { timeout: 5_000 });
-        } catch {
-          // Timeout OK
+          await page.waitForTimeout(1_500);
         }
       }
 
       const html = await page.content();
 
-      if (!foundContent && this.isChallengePage(html)) {
-        throw new Error(
-          `Cloudflare challenge did not resolve within ${maxWaitMs / 1000}s on ${url}`,
-        );
+      if (!found && /captcha|challenge-platform|verify you are human|cf-mitigated/i.test(html)) {
+        // Reset context so the next retry gets a fresh browser fingerprint
+        await this.resetContext();
+        throw new Error('Cloudflare challenge not resolved');
       }
 
-      // Track referrer chain
       this.lastPageUrl = url;
-
       return html;
     } finally {
       await page.close();
     }
   }
 
-  /**
-   * Collects listing URLs from paginated search pages.
-   * Reuses the same logic as CheerioScraper but with Playwright's fetchPage.
-   */
+  // ── URL collection ──
+
   protected async collectListingUrls(): Promise<string[]> {
     const urls: string[] = [];
     const { selectors } = this.config;
@@ -226,7 +176,7 @@ export class PlaywrightScraper extends ScraperBase {
       const cards = $(selectors.listingCard);
 
       if (cards.length === 0) {
-        this.log.info({ page: pageNum }, 'No more listing cards found, stopping pagination');
+        this.log.info({ page: pageNum }, 'No more listing cards found, stopping');
         break;
       }
 
@@ -240,10 +190,7 @@ export class PlaywrightScraper extends ScraperBase {
         }
       });
 
-      this.log.debug(
-        { page: pageNum, found: cards.length, total: urls.length },
-        'Search page scraped',
-      );
+      this.log.info({ page: pageNum, found: cards.length, total: urls.length }, 'Page scraped');
 
       if (selectors.pagination?.nextButton) {
         const hasNext = $(selectors.pagination.nextButton).length > 0;
@@ -254,24 +201,23 @@ export class PlaywrightScraper extends ScraperBase {
     return [...new Set(urls)];
   }
 
-  /**
-   * Scrapes a single listing detail page.
-   */
+  // ── Detail extraction ──
+
   protected async scrapeListing(url: string): Promise<RawListingData | null> {
     const html = await this.fetchWithRetry(url);
     const $ = cheerio.load(html);
     const { selectors } = this.config;
 
-    const text = (selector: string | undefined): string | undefined => {
-      if (!selector) return undefined;
-      const val = $(selector).first().text().trim();
+    const text = (sel: string | undefined): string | undefined => {
+      if (!sel) return undefined;
+      const val = $(sel).first().text().trim();
       return val || undefined;
     };
 
-    const images = (selector: string | undefined): string[] => {
-      if (!selector) return [];
+    const images = (sel: string | undefined): string[] => {
+      if (!sel) return [];
       const imgs: string[] = [];
-      $(selector).each((_i, el) => {
+      $(sel).each((_i, el) => {
         const src = $(el).attr('src') ?? $(el).attr('data-src');
         if (src)
           imgs.push(src.startsWith('http') ? src : new URL(src, this.config.website).toString());
@@ -279,7 +225,7 @@ export class PlaywrightScraper extends ScraperBase {
       return imgs;
     };
 
-    const raw: RawListingData = {
+    return {
       sourceUrl: url,
       sourcePlatform: this.config.name.toLowerCase().replace(/\s+/g, '-'),
       externalId: extractExternalId(url),
@@ -309,13 +255,10 @@ export class PlaywrightScraper extends ScraperBase {
       brokerPhone: text(selectors.brokerPhone),
       brokerEmail: text(selectors.brokerEmail),
     };
-
-    return raw;
   }
 
-  /**
-   * Disconnect from the remote browser.
-   */
+  // ── Cleanup ──
+
   async close(): Promise<void> {
     if (this.context) {
       await this.context.close().catch(() => {});
@@ -326,10 +269,6 @@ export class PlaywrightScraper extends ScraperBase {
       this.browser = undefined;
     }
   }
-
-  private isChallengePage(html: string): boolean {
-    return CHALLENGE_PATTERNS.test(html);
-  }
 }
 
 function extractExternalId(url: string): string | undefined {
@@ -337,7 +276,6 @@ function extractExternalId(url: string): string | undefined {
     const parsed = new URL(url);
     const idParam = parsed.searchParams.get('id');
     if (idParam) return idParam;
-
     const segments = parsed.pathname.split('/').filter(Boolean);
     for (let i = segments.length - 1; i >= 0; i--) {
       const numericSuffix = segments[i].match(/(\d{4,})$/);
