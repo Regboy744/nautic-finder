@@ -29,6 +29,7 @@
     "db:migrate:new": "pnpm exec supabase migration new",
     "db:reset": "pnpm exec supabase db reset --linked",
     "scrape:test": "node --env-file=.env --import=tsx/esm scripts/test-scrape.ts",
+    "scrape:run": "node --env-file=.env --import=tsx/esm scripts/run-scrape.ts",
     "prepare": "husky"
   },
   "keywords": [

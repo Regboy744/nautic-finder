@@ -64,17 +64,18 @@ export class PlaywrightScraper extends ScraperBase {
       bypassCSP: true,
     };
 
-    // Set proxy at the context level (not browser level) so auth works correctly
+    // Proxy is set at the browser level (--proxy-server in Docker).
+    // We provide credentials via httpCredentials so every request
+    // sends the Proxy-Authorization header.
     if (this.proxyUrl) {
       const parsed = new URL(this.proxyUrl);
-      contextOptions.proxy = {
-        server: `${parsed.protocol}//${parsed.hostname}:${parsed.port}`,
+      contextOptions.httpCredentials = {
         username: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
       };
       this.log.info(
         { proxyServer: `${parsed.hostname}:${parsed.port}` },
-        'Context proxy configured',
+        'Proxy credentials configured for context',
       );
     }
 
