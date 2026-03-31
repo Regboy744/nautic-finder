@@ -13,6 +13,7 @@ Future expansion will cover boat parts, marine equipment, marinas, marine servic
 ## Architecture Overview
 
 ### Architecture Style
+
 - Domain-Driven Design (DDD) with clear bounded contexts
 - Microservices architecture — frontend and backend fully separated
 - Event-driven communication between services where appropriate
@@ -34,6 +35,7 @@ Future expansion will cover boat parts, marine equipment, marinas, marine servic
 ## Tech Stack
 
 ### Frontend (Separate Repository)
+
 - **Framework**: Vue 3 with Composition API
 - **Meta-framework**: Nuxt 3 (for SSR/SEO — critical for organic traffic)
 - **Styling**: Tailwind CSS
@@ -44,6 +46,7 @@ Future expansion will cover boat parts, marine equipment, marinas, marine servic
 - **Deployment**:Netlify
 
 ### Backend (Separate Repository)
+
 - **Runtime**: Node.js (LTS)
 - **Framework**: Fastify (Fastify preferred for performance)
 - **Language**: Typescript (ES Modules)
@@ -56,22 +59,24 @@ Future expansion will cover boat parts, marine equipment, marinas, marine servic
 - **Deployment**: Railway, Render, or DigitalOcean App Platform
 
 ### Database
+
 - **Primary Database**: Supabase (PostgreSQL)
 - **Vector Extension**: pgvector (for embedding storage and semantic search)
 - **ORM/Query Builder**: Prisma or Drizzle ORM (Drizzle preferred for performance and pgvector support)
 - **Cache**: Redis (Upstash for serverless, or self-hosted)
 - **Migrations**: Managed through the ORM migration system
-- For the data collection plan, field and some other info, look at the  /home/regboy/coding/nauticFinder/backend/datacollectionplan.md, not all data will be available in all websites,
-so , we need to be aware about that. 
-
+- For the data collection plan, field and some other info, look at the /home/regboy/coding/nauticFinder/backend/datacollectionplan.md, not all data will be available in all websites,
+  so , we need to be aware about that.
 
 ### AI Services
+
 - **Filter Extraction (Step 0)**: Google Gemini 2.0 Flash (free tier) — extracts structured JSON filters from natural language
 - **Embeddings (Step 2)**: OpenAI text-embedding-3-small (cheap) or Ollama with nomic-embed-text (free, self-hosted)
 - **Reasoning & Response (Step 4)**: Gemini Flash for basic queries, Claude Sonnet for complex comparisons and image analysis
 - **Image/Condition Analysis**: Claude Vision or Gemini Vision — run at scrape time, store results as text
 
 ### Scraping
+
 - **Browser Automation**: Playwright (for JavaScript-rendered pages)
 - **HTML Parsing**: Cheerio (for static HTML pages)
 - **Job Scheduling**: BullMQ with Redis (manages scraping queues, retries, rate limiting)
@@ -79,11 +84,13 @@ so , we need to be aware about that.
 - **AI-Assisted Selector Generation**: Send sample HTML to Claude/Gemini to auto-generate CSS selectors for new broker sites
 
 ### Notifications
+
 - **Email**: Resend (developer-friendly) or SendGrid
 - **Push**: Web Push API
 - **Optional**: WhatsApp via Twilio (popular in European boat market)
 
 ### Monitoring & DevOps
+
 - **Error Tracking**: Sentry
 - **Monitoring**: Uptime monitoring with BetterUptime or similar
 - **CI/CD**: GitHub Actions
@@ -96,6 +103,7 @@ so , we need to be aware about that.
 ### Core Tables
 
 **brokers** — the external websites being scraped
+
 - id (uuid, primary key)
 - name (text) — e.g., "YachtWorld"
 - website (text) — base URL
@@ -108,6 +116,7 @@ so , we need to be aware about that.
 - created_at, updated_at (timestamptz)
 
 **boats** — the main inventory table, every scraped boat listing
+
 - id (uuid, primary key)
 - title (text)
 - manufacturer (text)
@@ -163,6 +172,7 @@ so , we need to be aware about that.
 - created_at, updated_at (timestamptz)
 
 **price_history** — tracks every price change for trend analysis
+
 - id (uuid, primary key)
 - boat_id (uuid, FK to boats)
 - price (numeric)
@@ -171,6 +181,7 @@ so , we need to be aware about that.
 - recorded_at (timestamptz)
 
 **boat_images_analysis** — detailed per-image AI analysis
+
 - id (uuid, primary key)
 - boat_id (uuid, FK to boats)
 - image_url (text)
@@ -183,6 +194,7 @@ so , we need to be aware about that.
 - ai_model_used (text) — which model performed the analysis
 
 **users** — platform users
+
 - id (uuid, primary key)
 - email (text, unique)
 - name (text)
@@ -193,6 +205,7 @@ so , we need to be aware about that.
 - created_at, updated_at (timestamptz)
 
 **saved_boats** — boats the user is watching/tracking
+
 - id (uuid, primary key)
 - user_id (uuid, FK to users)
 - boat_id (uuid, FK to boats)
@@ -201,6 +214,7 @@ so , we need to be aware about that.
 - unique constraint on (user_id, boat_id)
 
 **search_alerts** — automated notifications for matching criteria
+
 - id (uuid, primary key)
 - user_id (uuid, FK to users)
 - name (text) — user's label for this alert
@@ -213,6 +227,7 @@ so , we need to be aware about that.
 - created_at (timestamptz)
 
 **conversations** — chat sessions between user and AI
+
 - id (uuid, primary key)
 - user_id (uuid, FK to users)
 - title (text) — auto-generated summary of the conversation
@@ -221,6 +236,7 @@ so , we need to be aware about that.
 - created_at, updated_at (timestamptz)
 
 **market_stats** — aggregated market data for price comparison
+
 - id (uuid, primary key)
 - manufacturer (text)
 - model (text)
@@ -249,11 +265,13 @@ so , we need to be aware about that.
 ## Microservices Architecture
 
 ### Service 1: Scraping Service
+
 **Responsibility**: Discovers, extracts, and normalizes boat data from external websites.
 **Domain**: Scraping Domain
 **Tech**: Node.js + Playwright + Cheerio + BullMQ
 **Communication**: Writes directly to the Catalog Domain's database. Publishes events to Redis for "new boat found" and "price changed."
 **Key Components**:
+
 - Scraper Engine — manages browser instances, handles retries, respects rate limits
 - Selector Registry — stores CSS selectors per broker site, supports AI-assisted generation
 - Data Normalizer — cleans raw scraped data into consistent format (currency conversion, unit conversion, text cleaning)
@@ -262,10 +280,12 @@ so , we need to be aware about that.
 - Health Monitor — tracks scraper success rates, detects when a broker site changes layout
 
 ### Service 2: Catalog Service (API)
+
 **Responsibility**: Manages the boat inventory, handles CRUD operations, deduplication, price tracking.
 **Domain**: Catalog Domain
 **Tech**: Node.js + Fastify + Drizzle ORM + Supabase
 **Endpoints**:
+
 - GET /api/v1/boats — list boats with filters (paginated)
 - GET /api/v1/boats/:id — single boat details with full data
 - GET /api/v1/boats/:id/price-history — price changes over time
@@ -275,30 +295,34 @@ so , we need to be aware about that.
 - Internal endpoints for the scraping service to create/update boats
 
 ### Service 3: Search Service
+
 **Responsibility**: Handles all search operations — SQL filtering, vector/semantic search, result ranking and scoring.
 **Domain**: Search Domain
 **Tech**: Node.js + Fastify + pgvector + Redis (for caching search results)
 **Endpoints**:
+
 - POST /api/v1/search — accepts structured filters + keywords, returns ranked boats
 - POST /api/v1/search/semantic — accepts embedding vector, returns closest boats
 - GET /api/v1/search/suggestions — auto-complete and search suggestions
-**Key Components**:
+  **Key Components**:
 - Filter Builder — dynamically constructs SQL WHERE clauses from structured filters
 - Vector Search Engine — performs pgvector similarity search on pre-filtered results
 - Result Scorer — applies business logic scoring (photo count, listing freshness, condition score, data completeness)
 - Result Cache — stores top 200 results per session in Redis for pagination
 
 ### Service 4: AI Service
+
 **Responsibility**: All AI model interactions — filter extraction, embedding generation, reasoning, image analysis.
 **Domain**: AI Domain
 **Tech**: Node.js + Fastify + AI SDKs (Google Generative AI, Anthropic, OpenAI)
 **Endpoints**:
+
 - POST /api/v1/ai/extract-filters — takes natural language, returns structured JSON filters
 - POST /api/v1/ai/generate-embedding — takes text, returns vector embedding
 - POST /api/v1/ai/reason — takes boats + user message, returns conversational AI response
 - POST /api/v1/ai/analyze-image — takes image URL, returns condition analysis
 - POST /api/v1/ai/compare — takes multiple boats, returns detailed comparison
-**Key Components**:
+  **Key Components**:
 - Model Router — selects the right AI model based on task complexity (Gemini Flash for simple, Claude for complex)
 - System Prompt Manager — maintains and versions the boat expert system prompt with all domain knowledge
 - Token Budget Manager — tracks token usage and costs per query
@@ -306,10 +330,12 @@ so , we need to be aware about that.
 - Rate Limiter — prevents abuse and controls AI API costs
 
 ### Service 5: User Service
+
 **Responsibility**: User accounts, authentication, preferences, saved boats.
 **Domain**: User Domain
 **Tech**: Node.js + Fastify + Supabase Auth
 **Endpoints**:
+
 - POST /api/v1/auth/register
 - POST /api/v1/auth/login
 - GET /api/v1/users/me — current user profile
@@ -323,20 +349,24 @@ so , we need to be aware about that.
 - DELETE /api/v1/users/me/alerts/:id
 
 ### Service 6: Notification Service
+
 **Responsibility**: Sends emails, push notifications, and alerts when new matching boats appear.
 **Domain**: Notification Domain
 **Tech**: Node.js + BullMQ + Resend (email) + Web Push API
 **Key Components**:
+
 - Alert Matcher — when a new boat is added, checks against all active search alerts
 - Notification Queue — BullMQ queue for sending notifications with retry logic
 - Email Templates — pre-built templates for new listing alerts, price drop alerts, weekly digests
 - Delivery Tracker — tracks which notifications were sent, opened, clicked
 
 ### Service 7: Conversation Service
+
 **Responsibility**: Manages chat sessions, stores conversation history, maintains context.
 **Domain**: Conversation Domain
 **Tech**: Node.js + Fastify + Supabase
 **Endpoints**:
+
 - GET /api/v1/conversations — list user's conversations
 - POST /api/v1/conversations — start new conversation
 - GET /api/v1/conversations/:id — get full conversation with messages
@@ -344,10 +374,12 @@ so , we need to be aware about that.
 - DELETE /api/v1/conversations/:id
 
 ### Service 8: Gateway / BFF (Backend for Frontend)
+
 **Responsibility**: Single entry point for the frontend. Routes requests to appropriate microservices. Handles authentication middleware, rate limiting, and request validation.
 **Domain**: Cross-cutting
 **Tech**: Node.js + Fastify
 **Key Responsibilities**:
+
 - JWT validation on every request
 - Rate limiting per user
 - Request routing to internal services
@@ -361,12 +393,14 @@ so , we need to be aware about that.
 When a user sends a message in the chat, this is the complete flow across services:
 
 ### Step 0: Topic Validation
+
 - **Who**: AI Service (Topic Guard)
 - **What**: Quick keyword check to ensure the message is nautical-related
 - **If off-topic**: Return a friendly redirect message without incurring any AI API costs
 - **If on-topic**: Continue to Step 1
 
 ### Step 1: Filter Extraction
+
 - **Who**: AI Service (Model Router → Gemini Flash)
 - **What**: Send the user's natural language message to Gemini Flash with a structured prompt
 - **Input**: "I want a family sailboat under €40k, easy to handle"
@@ -375,6 +409,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Speed**: ~500ms
 
 ### Step 2: SQL Pre-filtering
+
 - **Who**: Search Service (Filter Builder)
 - **What**: Build a dynamic SQL query using only the non-null filters from Step 1
 - **Input**: { type: "sail", maxPrice: 40000 }
@@ -383,6 +418,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Speed**: ~20ms
 
 ### Step 3: Embedding Generation
+
 - **Who**: AI Service (Embedding Generator)
 - **What**: Convert ONLY the user's keywords into a vector embedding
 - **Input**: "family easy to handle beginner friendly"
@@ -392,6 +428,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Important**: The boats' embeddings are already pre-computed and stored in the database from scrape time. Only the user's short prompt is converted here.
 
 ### Step 4: Semantic Vector Search
+
 - **Who**: Search Service (Vector Search Engine)
 - **What**: Compare the user's embedding against the pre-stored embeddings of the pre-filtered boats
 - **Input**: User embedding + array of pre-filtered boat IDs
@@ -400,6 +437,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Speed**: ~30ms
 
 ### Step 5: Result Scoring & Ranking
+
 - **Who**: Search Service (Result Scorer)
 - **What**: Apply business logic scoring on top of vector relevance
 - **Scoring factors**: photo count (more photos = more trustworthy), listing freshness (newer = better), condition score (higher = better), data completeness (more fields filled = better), vector distance (closer = more relevant)
@@ -407,6 +445,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Cache**: Store top 200 results in Redis for pagination in follow-up messages
 
 ### Step 6: AI Reasoning & Response Generation
+
 - **Who**: AI Service (Model Router → Claude Sonnet or Gemini Flash)
 - **What**: Send the top 30 boats + user's message + conversation history + system prompt to the AI
 - **The AI**: Reads all 30 boats, selects the top 3-5, explains why each is a good match, flags condition concerns from pre-analyzed photos, assesses price fairness using market stats, writes everything in beginner-friendly language
@@ -414,11 +453,13 @@ When a user sends a message in the chat, this is the complete flow across servic
 - **Speed**: ~2-3 seconds
 
 ### Step 7: Response Delivery
+
 - **Who**: Conversation Service + Gateway
 - **What**: Store the AI response in conversation history, return to frontend
 - **Frontend renders**: AI text + boat cards with photos + comparison data + action buttons (save, compare, contact broker)
 
 ### Total pipeline time: ~3-4 seconds
+
 ### Total cost per query: ~$0.01-0.04
 
 ---
@@ -428,6 +469,7 @@ When a user sends a message in the chat, this is the complete flow across servic
 This runs separately from user queries. It happens when scrapers add or update boats.
 
 ### When a New Boat is Scraped:
+
 1. Scraping Service extracts raw data from broker website
 2. Data Normalizer cleans and structures the data
 3. Deduplication Engine checks fingerprint against existing boats
@@ -441,6 +483,7 @@ This runs separately from user queries. It happens when scrapers add or update b
 11. Notification Service picks up the event and checks against search alerts
 
 ### When a Boat's Photos Are Scraped:
+
 1. For each image URL, send to AI Service → Image Analyzer
 2. AI returns condition analysis text + issues found + condition score
 3. Store in boat_images_analysis table
@@ -452,9 +495,11 @@ This runs separately from user queries. It happens when scrapers add or update b
 ## Scraping Strategy
 
 ### Phase 1 — Aggregator Scraping (Month 1)
+
 Build scrapers for the top 6 aggregator platforms. These cover approximately 80-90% of all boats for sale worldwide.
 
 **Priority order**:
+
 1. YachtWorld (~80,000 listings, largest broker MLS)
 2. boats.com (~120,000 listings, same parent company as YachtWorld)
 3. Boat Trader (~108,000 listings, same parent company)
@@ -465,6 +510,7 @@ Build scrapers for the top 6 aggregator platforms. These cover approximately 80-
 **Expected unique boats after deduplication**: ~150,000-250,000
 
 ### Phase 2 — Secondary Aggregators (Month 2)
+
 7. Scanboat (~14,000, strong Nordic/Northern Europe)
 8. YATCO (~15,000, luxury/high-end yachts, potential API access)
 9. Apollo Duck (UK, Ireland, Europe — important for Dublin base)
@@ -475,6 +521,7 @@ Build scrapers for the top 6 aggregator platforms. These cover approximately 80-
 **Expected total unique boats**: ~300,000-350,000
 
 ### Phase 3 — Regional & Niche (Month 3)
+
 13. boatsales.com.au (Australia — 3rd most visited boats website globally)
 14. POP Yachts (USA, performance-based broker)
 15. iBoats (USA, community + listings)
@@ -485,13 +532,17 @@ Build scrapers for the top 6 aggregator platforms. These cover approximately 80-
 **Expected total unique boats**: ~400,000+
 
 ### Phase 4 — MLS Data Feeds (Month 2-3, parallel)
+
 Apply for structured API access:
+
 - IYBA MLS Feed (REST JSON API)
 - YATCO BOSS API
-These provide clean, structured data without scraping.
+  These provide clean, structured data without scraping.
 
 ### Phase 5 — AI-Assisted Rapid Expansion (Month 3+)
+
 Build an admin tool that:
+
 1. Takes a broker website URL as input
 2. Fetches a sample listing page
 3. Sends the HTML to Claude/Gemini to auto-generate CSS selectors
@@ -501,6 +552,7 @@ Build an admin tool that:
 This reduces per-broker setup time from hours to minutes, enabling rapid addition of individual brokers.
 
 ### Scraper Architecture Best Practices
+
 - Each broker has its own config file with selectors, pagination rules, and rate limits
 - Respect robots.txt and implement polite crawling (delays between requests)
 - Use rotating proxies to avoid IP blocking
@@ -510,6 +562,7 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 - Run scrapers on a schedule: major aggregators every 4-6 hours, smaller sites every 12-24 hours
 
 ### Deduplication Strategy
+
 - Generate fingerprint from: lowercase(manufacturer) + lowercase(model) + year + round(length_ft)
 - When fingerprint matches existing boat: merge data, taking the most complete/recent values from each source
 - Track all source URLs per boat to know which brokers list it
@@ -521,24 +574,29 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 ## Data Normalization Rules
 
 ### Price Normalization
+
 - Convert all prices to EUR using daily exchange rates (free API: exchangerate-api.com)
 - Store both original price + currency AND normalized EUR price
 - Handle "Price on Application" / "POA" — store as null, flag for the AI to mention
 
 ### Length Normalization
+
 - Convert all measurements to feet (primary) and store meters as secondary
 - Handle formats: "34ft", "34'", "10.4m", "34 feet", "10,4 m"
 
 ### Type Normalization
+
 - Map broker-specific categories to standard types: "sail", "motor", "catamaran", "fishing", "jetski", "rib", "dinghy", "trawler", "houseboat", "commercial"
 - Handle edge cases: "sloop" → "sail", "cruiser" → "motor", "sportfish" → "fishing"
 
 ### Location Normalization
+
 - Standardize country names to ISO codes
 - Extract city/region from free-text location fields
 - Optionally geocode to lat/long for distance-based search
 
 ### Feature Extraction
+
 - Parse description text to extract features into the features array
 - Look for: bow thruster, autopilot, radar, GPS, chart plotter, windlass, davits, solar panels, generator, watermaker, air conditioning, heating, dinghy, outboard, roller furling, in-mast furling, lazy jacks, bimini, dodger, sprayhood
 
@@ -547,6 +605,7 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 ## Frontend Architecture
 
 ### Pages
+
 - **Home / Landing** — hero section with chat input, value proposition, example queries
 - **Chat** — the main conversational interface, full-screen chat with boat cards rendered inline
 - **Boat Detail** — full page for a single boat with all specs, photos, condition analysis, price history chart, similar boats, broker contact
@@ -557,6 +616,7 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 - **Auth** — login / register pages
 
 ### Key Frontend Components
+
 - ChatInterface — the main chat window with message bubbles
 - ChatInput — text input with suggestion chips below
 - BoatCard — compact boat display used inline in chat responses (photo, title, price, key specs, condition badge)
@@ -571,6 +631,7 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 - BrokerContactCard — broker info with call/email buttons
 
 ### Frontend Best Practices
+
 - Mobile-first responsive design (many users will browse on phones at marinas and boat shows)
 - Lazy load images (boat photos are heavy)
 - Implement skeleton loading states for chat responses (streaming feel)
@@ -586,6 +647,7 @@ This reduces per-broker setup time from hours to minutes, enabling rapid additio
 The AI system prompt is a critical part of the product. It contains all the domain expertise that makes the AI a "boat expert." This prompt should be versioned, maintained, and continuously improved.
 
 ### Core System Prompt Structure
+
 1. **Identity**: "You are NauticFinder AI, a specialized nautical expert and boat advisor."
 2. **Scope Limitation**: Only respond to nautical/marine topics. Redirect off-topic questions.
 3. **Tone**: Friendly, knowledgeable, approachable. Explain technical terms simply. Never condescending.
@@ -598,6 +660,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 ## Development Phases
 
 ### Phase 1 — Foundation & Data (Weeks 1-4)
+
 **Goal**: Database running, first scraper working, real data flowing in.
 
 - Set up Supabase project with full schema and pgvector extension
@@ -612,6 +675,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Set up CI/CD pipeline with GitHub Actions
 
 ### Phase 2 — Search & Embeddings (Weeks 5-6)
+
 **Goal**: Semantic search working, boats are searchable by meaning.
 
 - Integrate embedding generation (OpenAI or Ollama)
@@ -623,6 +687,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Test search quality with various natural language queries
 
 ### Phase 3 — AI Pipeline (Weeks 7-8)
+
 **Goal**: The full AI chat pipeline working end-to-end.
 
 - Build the AI Service with filter extraction (Gemini Flash)
@@ -634,6 +699,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Test with real conversations and iterate on system prompt
 
 ### Phase 4 — Frontend (Weeks 9-12)
+
 **Goal**: Beautiful, functional chat interface users can interact with.
 
 - Set up Nuxt 3 project with Tailwind CSS
@@ -649,6 +715,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Deploy frontend to Vercel
 
 ### Phase 5 — Image Analysis & Condition (Weeks 13-14)
+
 **Goal**: AI photo analysis running on all boats.
 
 - Build the image analysis pipeline in the AI Service
@@ -659,6 +726,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Re-generate embeddings with condition data included
 
 ### Phase 6 — Notifications & Alerts (Weeks 15-16)
+
 **Goal**: Users get notified about new matching boats.
 
 - Build the Notification Service
@@ -669,6 +737,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Test end-to-end: new boat scraped → matches alert → user notified
 
 ### Phase 7 — Scaling & Polish (Weeks 17-20)
+
 **Goal**: More data, more features, production-ready quality.
 
 - Add remaining scrapers (Tier 2 and Tier 3 broker sites)
@@ -682,6 +751,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 - Load testing with expected user volumes
 
 ### Phase 8 — Launch & Growth (Week 20+)
+
 **Goal**: Public launch, user acquisition, iteration.
 
 - Soft launch with beta users (boating communities, forums, Reddit)
@@ -696,6 +766,7 @@ The AI system prompt is a critical part of the product. It contains all the doma
 ## Project Repository Structure
 
 ### Backend Repository (nauticfinder-api)
+
 ```
 nauticfinder-api/
 ├── docker-compose.yml
@@ -817,6 +888,7 @@ nauticfinder-api/
 ```
 
 ### Frontend Repository (nauticfinder-web)
+
 ```
 nauticfinder-web/
 ├── nuxt.config.ts
@@ -901,6 +973,7 @@ nauticfinder-web/
 ## Environment Variables
 
 ### Backend (.env)
+
 ```
 # Database
 SUPABASE_URL=
@@ -933,6 +1006,7 @@ CORS_ORIGIN=                      # Frontend URL
 ```
 
 ### Frontend (.env)
+
 ```
 NUXT_PUBLIC_API_BASE_URL=         # Backend API URL
 NUXT_PUBLIC_SUPABASE_URL=

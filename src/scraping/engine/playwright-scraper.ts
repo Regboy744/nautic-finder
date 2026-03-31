@@ -12,6 +12,11 @@ import type { Logger } from 'pino';
 import type { BrokerConfig, RawListingData } from '../types.js';
 import { getRandomProfile, type BrowserProfile } from '../stealth/index.js';
 import { ScraperBase } from './scraper-base.js';
+import {
+  setupResourceBlocking,
+  logFilterStats,
+  type ResourceFilterStats,
+} from './resource-filter.js';
 
 export interface PlaywrightScraperOptions {
   /** WebSocket endpoint for the Docker browser. */
@@ -26,6 +31,7 @@ export class PlaywrightScraper extends ScraperBase {
   private readonly browserProfile: BrowserProfile;
   private browser?: Browser;
   private context?: BrowserContext;
+  private filterStats?: ResourceFilterStats;
   private lastPageUrl?: string;
 
   constructor(config: BrokerConfig, log: Logger, options: PlaywrightScraperOptions) {
@@ -38,6 +44,10 @@ export class PlaywrightScraper extends ScraperBase {
   // ── Context management (one context per scrape run) ──
 
   private async resetContext(): Promise<void> {
+    if (this.filterStats) {
+      logFilterStats(this.filterStats, this.log);
+      this.filterStats = undefined;
+    }
     if (this.context) {
       await this.context.close().catch(() => {});
       this.context = undefined;
@@ -72,9 +82,9 @@ export class PlaywrightScraper extends ScraperBase {
 
     this.context = await this.browser.newContext(contextOptions);
 
-    await this.context.route('**/*.{png,jpg,jpeg,gif,svg,webp,woff,woff2,ttf,eot}', (route) =>
-      route.abort(),
-    );
+    // Block non-essential resources (images, CSS, fonts, ads, analytics, trackers)
+    // to minimize proxy bandwidth usage (~85-90% reduction expected).
+    this.filterStats = await setupResourceBlocking(this.context, this.log);
 
     await this.context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -138,6 +148,11 @@ export class PlaywrightScraper extends ScraperBase {
       }
 
       const html = await page.content();
+
+      // Halt any in-flight requests (late analytics, lazy images, etc.) now
+      // that we have the HTML we need. Saves additional proxy bandwidth.
+      // Using string form to avoid TypeScript "lib" issues (runs in browser).
+      await page.evaluate('window.stop()').catch(() => {});
 
       if (!found && /captcha|challenge-platform|verify you are human|cf-mitigated/i.test(html)) {
         // Reset context so the next retry gets a fresh browser fingerprint
@@ -260,6 +275,10 @@ export class PlaywrightScraper extends ScraperBase {
   // ── Cleanup ──
 
   async close(): Promise<void> {
+    if (this.filterStats) {
+      logFilterStats(this.filterStats, this.log);
+      this.filterStats = undefined;
+    }
     if (this.context) {
       await this.context.close().catch(() => {});
       this.context = undefined;

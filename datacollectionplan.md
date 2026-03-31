@@ -1,16 +1,17 @@
 # NauticFinder.ai — Data Collection Plan
+
 **Branch:** AI Intelligence Layer | **Version:** 1.0 | **2026**
 
 ---
 
 ## 0 — Where This Fits in the Master Plan
 
-| | |
-|---|---|
-| **Parent plan** | NauticFinder.ai Master Project Plan |
-| **This branch** | Data Collection & Intelligence Layer |
+|                   |                                                                      |
+| ----------------- | -------------------------------------------------------------------- |
+| **Parent plan**   | NauticFinder.ai Master Project Plan                                  |
+| **This branch**   | Data Collection & Intelligence Layer                                 |
 | **Peer branches** | Scraping Engine · AI Search Pipeline · Frontend · Broker Aggregation |
-| **Feeds into** | AI Search Pipeline (pgvector + Claude/Gemini reasoning) |
+| **Feeds into**    | AI Search Pipeline (pgvector + Claude/Gemini reasoning)              |
 
 Everything in this plan must be completed before the AI search pipeline can produce accurate, personalised results. No good data = no good AI.
 
@@ -20,12 +21,12 @@ Everything in this plan must be completed before the AI search pipeline can prod
 
 The data model has two distinct layers kept separate in the database:
 
-| Layer A — Listing Data (dynamic) | Layer B — Model Spec Data (static) |
-|---|---|
-| Scraped from broker sites daily | Collected once per boat model |
-| Changes constantly (price, availability) | Almost never changes |
-| Stored in: `boat_listings` table | Stored in: `boat_models` table |
-| One row per listing per source | Linked via make + model FK |
+| Layer A — Listing Data (dynamic)         | Layer B — Model Spec Data (static) |
+| ---------------------------------------- | ---------------------------------- |
+| Scraped from broker sites daily          | Collected once per boat model      |
+| Changes constantly (price, availability) | Almost never changes               |
+| Stored in: `boat_listings` table         | Stored in: `boat_models` table     |
+| One row per listing per source           | Linked via make + model FK         |
 
 **Key insight:** When a Beneteau Oceanis 40.1 appears in a listing, the system looks up the model record and pulls all technical specs automatically. Scrapers only need to capture listing-specific fields — not re-scrape dimensions every time.
 
@@ -37,20 +38,22 @@ The data model has two distinct layers kept separate in the database:
 
 Scraped with Playwright + Cheerio via BullMQ job queues.
 
-| # | Platform | Coverage | Frequency | Notes |
-|---|---|---|---|---|
-| 1 | YachtWorld | Global (primary) | Daily | Largest global inventory |
-| 2 | Boat Trader | USA + international | Daily | Strong US motorboat coverage |
-| 3 | Rightboat | Europe + UK focus | Daily | Good European sailboat stock |
-| 4 | TheYachtMarket | UK + Europe | Daily | Strong brokerage listings |
-| 5 | Boat24 | Europe | Daily | German, French, Italian boats |
-| 6 | Scanboat | Scandinavia | Every 2 days | Nordic market |
-| 7 | Apollo Duck | UK focus | Every 2 days | Budget and older boats |
-| 8 | Annonces du Bateau | France | Every 3 days | French market |
+| #   | Platform           | Coverage            | Frequency    | Notes                         |
+| --- | ------------------ | ------------------- | ------------ | ----------------------------- |
+| 1   | YachtWorld         | Global (primary)    | Daily        | Largest global inventory      |
+| 2   | Boat Trader        | USA + international | Daily        | Strong US motorboat coverage  |
+| 3   | Rightboat          | Europe + UK focus   | Daily        | Good European sailboat stock  |
+| 4   | TheYachtMarket     | UK + Europe         | Daily        | Strong brokerage listings     |
+| 5   | Boat24             | Europe              | Daily        | German, French, Italian boats |
+| 6   | Scanboat           | Scandinavia         | Every 2 days | Nordic market                 |
+| 7   | Apollo Duck        | UK focus            | Every 2 days | Budget and older boats        |
+| 8   | Annonces du Bateau | France              | Every 3 days | French market                 |
 
-- Thre will be many other, these are example of the logic that will use on the system
+- There will be many other, these are example of the logic that will use on the system
 
+The listint we will scrape
 
+- /home/regboy/coding/nauticFinder/backend/broker_listing_websites.md
 
 ### 2.2 Model Spec Reference Sources
 
@@ -62,11 +65,16 @@ Collected once per model, stored in `boat_models`, reused across all listings of
 - **Manufacturer spec sheets** — PDF parsing for new models not yet in aggregators
 - **Existing listing data** — dimensions extracted from broker listing fields when model record is missing
 
+The listint we will scrape
+
+- /home/regboy/coding/nauticFinder/backend/broker_listing_websites.md
+
 ---
 
 ## 3 — Field Catalogue
 
 **Field type legend:**
+
 - `scrape` — extracted directly from broker listing pages
 - `calc` — computed from raw dimensions at ingest time
 - `AI` — generated by Claude / Gemini after analysis runs
@@ -75,34 +83,34 @@ Collected once per model, stored in `boat_models`, reused across all listings of
 
 ### 3.1 Core Listing Fields (`boat_listings`) — all boat types
 
-| Field | Type | Description |
-|---|---|---|
-| `listing_id` | calc | UUID primary key generated at ingest |
-| `source_platform` | scrape | YachtWorld / BoatTrader / Rightboat … |
-| `source_url` | scrape | Original listing URL for deduplication & links |
-| `external_id` | scrape | Platform's own listing ID |
-| `title` | scrape | Listing headline text |
-| `price` | scrape | Asking price as numeric value |
-| `currency` | scrape | EUR / USD / GBP / SEK … |
-| `price_usd` | calc | Price normalised to USD at scrape-time FX rate |
-| `year` | scrape | Year of manufacture |
-| `make` | scrape | Brand / manufacturer name |
-| `model` | scrape | Model name |
-| `boat_type` | scrape | sailboat / motorboat / RIB / catamaran … |
-| `country` | scrape | Country where boat is located |
-| `region` | scrape | State / county / area |
-| `marina_name` | scrape | Name of marina or harbour |
-| `lat` | calc | Latitude — geocoded from location string |
-| `lon` | calc | Longitude — geocoded from location string |
-| `description` | scrape | Full listing description text |
-| `photos` | scrape | JSON array of image URLs |
-| `broker_name` | scrape | Name of selling broker or private owner |
-| `broker_phone` | scrape | Contact phone number |
-| `broker_email` | scrape | Contact email address |
-| `is_private_sale` | scrape | Boolean — owner vs. broker listing |
-| `scraped_at` | calc | Timestamp of last successful scrape |
-| `is_active` | calc | Boolean — listing still live on source platform |
-| `model_id` | calc | FK to boat_models — linked after make/model match |
+| Field             | Type   | Description                                       |
+| ----------------- | ------ | ------------------------------------------------- |
+| `listing_id`      | calc   | UUID primary key generated at ingest              |
+| `source_platform` | scrape | YachtWorld / BoatTrader / Rightboat …             |
+| `source_url`      | scrape | Original listing URL for deduplication & links    |
+| `external_id`     | scrape | Platform's own listing ID                         |
+| `title`           | scrape | Listing headline text                             |
+| `price`           | scrape | Asking price as numeric value                     |
+| `currency`        | scrape | EUR / USD / GBP / SEK …                           |
+| `price_usd`       | calc   | Price normalised to USD at scrape-time FX rate    |
+| `year`            | scrape | Year of manufacture                               |
+| `make`            | scrape | Brand / manufacturer name                         |
+| `model`           | scrape | Model name                                        |
+| `boat_type`       | scrape | sailboat / motorboat / RIB / catamaran …          |
+| `country`         | scrape | Country where boat is located                     |
+| `region`          | scrape | State / county / area                             |
+| `marina_name`     | scrape | Name of marina or harbour                         |
+| `lat`             | calc   | Latitude — geocoded from location string          |
+| `lon`             | calc   | Longitude — geocoded from location string         |
+| `description`     | scrape | Full listing description text                     |
+| `photos`          | scrape | JSON array of image URLs                          |
+| `broker_name`     | scrape | Name of selling broker or private owner           |
+| `broker_phone`    | scrape | Contact phone number                              |
+| `broker_email`    | scrape | Contact email address                             |
+| `is_private_sale` | scrape | Boolean — owner vs. broker listing                |
+| `scraped_at`      | calc   | Timestamp of last successful scrape               |
+| `is_active`       | calc   | Boolean — listing still live on source platform   |
+| `model_id`        | calc   | FK to boat_models — linked after make/model match |
 
 ---
 
@@ -110,26 +118,26 @@ Collected once per model, stored in `boat_models`, reused across all listings of
 
 Collected once per model. Provides the raw inputs for all calculated ratios.
 
-| Field | Type | Description |
-|---|---|---|
-| `LOA` | scrape | Length overall in feet and metres |
-| `LWL` | scrape | Length at waterline in feet |
-| `beam` | scrape | Maximum beam (width) in feet |
-| `draft_max` | scrape | Maximum draft — deepest keel variant |
-| `draft_min` | scrape | Minimum draft — shoal keel or centreboard up |
-| `displacement_lbs` | scrape | Total displacement weight in pounds |
-| `displacement_kg` | calc | Displacement converted to kg (÷ 2.20462) |
-| `ballast_lbs` | scrape | Keel ballast weight in pounds |
-| `freeboard` | scrape | Hull height above waterline amidships |
-| `air_draft` | scrape | Distance from waterline to top of mast |
-| `hull_type` | scrape | Fin keel / full keel / shoal / centreboard … |
-| `hull_material` | scrape | FRP / fibreglass / aluminium / steel / wood |
-| `deck_material` | scrape | FRP / teak / aluminium … |
-| `construction_notes` | scrape | Solid / cored / sandwich layup details |
-| `first_built` | scrape | Year model was first produced |
-| `last_built` | scrape | Year model production ended (null if current) |
-| `designer` | scrape | Naval architect name |
-| `builder` | scrape | Manufacturer / shipyard name |
+| Field                | Type   | Description                                   |
+| -------------------- | ------ | --------------------------------------------- |
+| `LOA`                | scrape | Length overall in feet and metres             |
+| `LWL`                | scrape | Length at waterline in feet                   |
+| `beam`               | scrape | Maximum beam (width) in feet                  |
+| `draft_max`          | scrape | Maximum draft — deepest keel variant          |
+| `draft_min`          | scrape | Minimum draft — shoal keel or centreboard up  |
+| `displacement_lbs`   | scrape | Total displacement weight in pounds           |
+| `displacement_kg`    | calc   | Displacement converted to kg (÷ 2.20462)      |
+| `ballast_lbs`        | scrape | Keel ballast weight in pounds                 |
+| `freeboard`          | scrape | Hull height above waterline amidships         |
+| `air_draft`          | scrape | Distance from waterline to top of mast        |
+| `hull_type`          | scrape | Fin keel / full keel / shoal / centreboard …  |
+| `hull_material`      | scrape | FRP / fibreglass / aluminium / steel / wood   |
+| `deck_material`      | scrape | FRP / teak / aluminium …                      |
+| `construction_notes` | scrape | Solid / cored / sandwich layup details        |
+| `first_built`        | scrape | Year model was first produced                 |
+| `last_built`         | scrape | Year model production ended (null if current) |
+| `designer`           | scrape | Naval architect name                          |
+| `builder`            | scrape | Manufacturer / shipyard name                  |
 
 ---
 
@@ -137,31 +145,31 @@ Collected once per model. Provides the raw inputs for all calculated ratios.
 
 Only populated when `boat_type` is: sailboat, sailing catamaran, sailing trimaran, or similar.
 
-| Field | Type | Description |
-|---|---|---|
-| `rig_type` | scrape | Sloop / ketch / schooner / cutter / yawl |
-| `sail_area_main` | scrape | Mainsail area in sq ft |
-| `sail_area_jib` | scrape | 100% foretriangle area in sq ft |
-| `sail_area_total` | calc | Main + jib combined sq ft |
-| `i_spar` | scrape | Foretriangle height I (ft) |
-| `j_spar` | scrape | Foretriangle base J (ft) |
-| `p_spar` | scrape | Mainsail luff P (ft) |
-| `e_spar` | scrape | Mainsail foot E (ft) |
-| `mast_material` | scrape | Aluminium / carbon / wood |
-| `keel_type` | scrape | Fin / full / bulb / twin / daggerboard |
-| `keel_material` | scrape | Lead / cast iron / steel |
-| `rudder_type` | scrape | Skeg-hung / spade / transom-hung |
-| `cockpit_type` | scrape | Centre cockpit / aft cockpit / flush deck |
-| `headroom_m` | scrape | Standing headroom in saloon (metres) |
-| `berths` | scrape | Number of sleeping berths |
-| `heads` | scrape | Number of bathrooms / heads |
-| `water_tank_l` | scrape | Fresh water tank capacity in litres |
-| `fuel_tank_l` | scrape | Diesel tank capacity in litres |
-| `watermaker` | scrape | Watermaker present and capacity L/day |
-| `range_nm` | scrape | Motoring range in nautical miles |
-| `aux_engine_hp` | scrape | Auxiliary engine horsepower |
-| `aux_engine_make` | scrape | Yanmar / Volvo / Westerbeke … |
-| `aux_engine_hours` | scrape | Hours on auxiliary engine |
+| Field              | Type   | Description                               |
+| ------------------ | ------ | ----------------------------------------- |
+| `rig_type`         | scrape | Sloop / ketch / schooner / cutter / yawl  |
+| `sail_area_main`   | scrape | Mainsail area in sq ft                    |
+| `sail_area_jib`    | scrape | 100% foretriangle area in sq ft           |
+| `sail_area_total`  | calc   | Main + jib combined sq ft                 |
+| `i_spar`           | scrape | Foretriangle height I (ft)                |
+| `j_spar`           | scrape | Foretriangle base J (ft)                  |
+| `p_spar`           | scrape | Mainsail luff P (ft)                      |
+| `e_spar`           | scrape | Mainsail foot E (ft)                      |
+| `mast_material`    | scrape | Aluminium / carbon / wood                 |
+| `keel_type`        | scrape | Fin / full / bulb / twin / daggerboard    |
+| `keel_material`    | scrape | Lead / cast iron / steel                  |
+| `rudder_type`      | scrape | Skeg-hung / spade / transom-hung          |
+| `cockpit_type`     | scrape | Centre cockpit / aft cockpit / flush deck |
+| `headroom_m`       | scrape | Standing headroom in saloon (metres)      |
+| `berths`           | scrape | Number of sleeping berths                 |
+| `heads`            | scrape | Number of bathrooms / heads               |
+| `water_tank_l`     | scrape | Fresh water tank capacity in litres       |
+| `fuel_tank_l`      | scrape | Diesel tank capacity in litres            |
+| `watermaker`       | scrape | Watermaker present and capacity L/day     |
+| `range_nm`         | scrape | Motoring range in nautical miles          |
+| `aux_engine_hp`    | scrape | Auxiliary engine horsepower               |
+| `aux_engine_make`  | scrape | Yanmar / Volvo / Westerbeke …             |
+| `aux_engine_hours` | scrape | Hours on auxiliary engine                 |
 
 ---
 
@@ -169,27 +177,27 @@ Only populated when `boat_type` is: sailboat, sailing catamaran, sailing trimara
 
 Only populated when `boat_type` is: motorboat, motor yacht, RIB, powerboat, or similar.
 
-| Field | Type | Description |
-|---|---|---|
-| `hull_form` | scrape | Planing / semi-planing / displacement |
-| `engine_count` | scrape | Number of engines (1 / 2 / 3) |
-| `engine_make` | scrape | Volvo / Yanmar / MAN / Cummins … |
-| `engine_model` | scrape | Specific engine model designation |
-| `engine_hp` | scrape | Total combined horsepower |
-| `engine_hours` | scrape | Hours on engine(s) |
-| `engine_year` | scrape | Year of current engine installation |
-| `drive_type` | scrape | Shaft / sterndrive / pod / jet |
-| `fuel_type` | scrape | Diesel / petrol / electric / hybrid |
-| `max_speed_kts` | scrape | Manufacturer's claimed top speed in knots |
-| `cruise_speed_kts` | scrape | Efficient cruising speed in knots |
-| `fuel_burn_lph` | scrape | Fuel consumption litres per hour at cruise |
-| `range_nm` | scrape | Range at cruise speed in nautical miles |
-| `power_weight` | calc | HP per tonne — relative performance indicator |
-| `water_tank_l` | scrape | Fresh water capacity in litres |
-| `fuel_tank_l` | scrape | Total fuel tank capacity in litres |
-| `berths` | scrape | Number of sleeping berths |
-| `heads` | scrape | Number of bathrooms / heads |
-| `cabin_layout` | scrape | Open plan / forward cabin / fly bridge … |
+| Field              | Type   | Description                                   |
+| ------------------ | ------ | --------------------------------------------- |
+| `hull_form`        | scrape | Planing / semi-planing / displacement         |
+| `engine_count`     | scrape | Number of engines (1 / 2 / 3)                 |
+| `engine_make`      | scrape | Volvo / Yanmar / MAN / Cummins …              |
+| `engine_model`     | scrape | Specific engine model designation             |
+| `engine_hp`        | scrape | Total combined horsepower                     |
+| `engine_hours`     | scrape | Hours on engine(s)                            |
+| `engine_year`      | scrape | Year of current engine installation           |
+| `drive_type`       | scrape | Shaft / sterndrive / pod / jet                |
+| `fuel_type`        | scrape | Diesel / petrol / electric / hybrid           |
+| `max_speed_kts`    | scrape | Manufacturer's claimed top speed in knots     |
+| `cruise_speed_kts` | scrape | Efficient cruising speed in knots             |
+| `fuel_burn_lph`    | scrape | Fuel consumption litres per hour at cruise    |
+| `range_nm`         | scrape | Range at cruise speed in nautical miles       |
+| `power_weight`     | calc   | HP per tonne — relative performance indicator |
+| `water_tank_l`     | scrape | Fresh water capacity in litres                |
+| `fuel_tank_l`      | scrape | Total fuel tank capacity in litres            |
+| `berths`           | scrape | Number of sleeping berths                     |
+| `heads`            | scrape | Number of bathrooms / heads                   |
+| `cabin_layout`     | scrape | Open plan / forward cabin / fly bridge …      |
 
 ---
 
@@ -199,25 +207,25 @@ Computed at ingest time from raw dimensions. Stored permanently so the AI can qu
 
 #### Sailboat ratios
 
-| Ratio | Formula | What it tells the AI |
-|---|---|---|
-| SA / Displacement | `SA ÷ (Disp_lbs / 64)^0.666` | Power: <16 underpowered, >20 performance |
-| Ballast / Displacement | `(ballast_lbs / disp_lbs) × 100` | Stiffness: >40 = stiff and stable |
-| Displacement / Length | `(Disp÷2240) ÷ (0.01×LWL)^3` | <100 ultralight, >350 ultraheavy |
-| Comfort Ratio | `D ÷ (0.65×(0.7×LWL+0.3×LOA)×Beam^1.33)` | Motion comfort offshore (Ted Brewer) |
-| Capsize Screening (CSF) | `Beam ÷ (Disp_lbs/64)^0.333` | <2.0 = blue-water capable. Lower = safer |
-| Hull Speed (kts) | `1.34 × √LWL_ft` | Theoretical max speed in displacement mode |
-| S# Score | `√(SA/Disp) ÷ (D/L)^0.333` | Overall speed score combining power and weight |
-| LWL / LOA Ratio | `LWL ÷ LOA` | Waterline efficiency: higher = more hull in water |
-| Pounds per Inch (PPI) | `(LWL × Beam × 0.75) ÷ 420` | How sensitive the boat is to added weight |
+| Ratio                   | Formula                                  | What it tells the AI                              |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------- |
+| SA / Displacement       | `SA ÷ (Disp_lbs / 64)^0.666`             | Power: <16 underpowered, >20 performance          |
+| Ballast / Displacement  | `(ballast_lbs / disp_lbs) × 100`         | Stiffness: >40 = stiff and stable                 |
+| Displacement / Length   | `(Disp÷2240) ÷ (0.01×LWL)^3`             | <100 ultralight, >350 ultraheavy                  |
+| Comfort Ratio           | `D ÷ (0.65×(0.7×LWL+0.3×LOA)×Beam^1.33)` | Motion comfort offshore (Ted Brewer)              |
+| Capsize Screening (CSF) | `Beam ÷ (Disp_lbs/64)^0.333`             | <2.0 = blue-water capable. Lower = safer          |
+| Hull Speed (kts)        | `1.34 × √LWL_ft`                         | Theoretical max speed in displacement mode        |
+| S# Score                | `√(SA/Disp) ÷ (D/L)^0.333`               | Overall speed score combining power and weight    |
+| LWL / LOA Ratio         | `LWL ÷ LOA`                              | Waterline efficiency: higher = more hull in water |
+| Pounds per Inch (PPI)   | `(LWL × Beam × 0.75) ÷ 420`              | How sensitive the boat is to added weight         |
 
 #### Motorboat ratios
 
-| Ratio | Formula | What it tells the AI |
-|---|---|---|
-| Power / Weight | `engine_hp ÷ (disp_kg ÷ 1000)` | HP per tonne — raw performance indicator |
-| Fuel Range (nm) | `(tank_l ÷ burn_lph) × cruise_kts` | Operational range at cruise speed |
-| Speed / Length Ratio | `cruise_kts ÷ √LWL_ft` | Hull efficiency relative to waterline |
+| Ratio                | Formula                            | What it tells the AI                     |
+| -------------------- | ---------------------------------- | ---------------------------------------- |
+| Power / Weight       | `engine_hp ÷ (disp_kg ÷ 1000)`     | HP per tonne — raw performance indicator |
+| Fuel Range (nm)      | `(tank_l ÷ burn_lph) × cruise_kts` | Operational range at cruise speed        |
+| Speed / Length Ratio | `cruise_kts ÷ √LWL_ft`             | Hull efficiency relative to waterline    |
 
 ---
 
@@ -225,24 +233,25 @@ Computed at ingest time from raw dimensions. Stored permanently so the AI can qu
 
 Generated asynchronously after a listing is first scraped. Claude Sonnet handles complex analysis; Gemini Flash handles faster scoring. Results stored so they are not recomputed on every user query.
 
-| Field | Type | Description |
-|---|---|---|
-| `condition_score` | AI | 1–10 score derived from photo analysis |
-| `condition_flags` | AI | JSON array of spotted issues: osmosis / rust / torn sails / worn rigging … |
-| `condition_notes` | AI | Plain English condition summary for users |
-| `price_assessment` | AI | fair / overpriced / bargain — relative to comparable listings |
-| `price_delta_pct` | calc | % above or below average for same model / age / region |
-| `beginner_score` | AI | 1–10 ease of handling for first-time buyers |
-| `use_case_tags` | AI | JSON array: coastal / bluewater / racing / liveaboard / day sailing … |
-| `safety_notes` | AI | Key safety positives and concerns for this listing |
-| `summary_en` | AI | Plain-English 3-sentence summary used in chat responses |
-| `embedding` | calc | pgvector float[] — semantic search representation of this listing |
+| Field              | Type | Description                                                                |
+| ------------------ | ---- | -------------------------------------------------------------------------- |
+| `condition_score`  | AI   | 1–10 score derived from photo analysis                                     |
+| `condition_flags`  | AI   | JSON array of spotted issues: osmosis / rust / torn sails / worn rigging … |
+| `condition_notes`  | AI   | Plain English condition summary for users                                  |
+| `price_assessment` | AI   | fair / overpriced / bargain — relative to comparable listings              |
+| `price_delta_pct`  | calc | % above or below average for same model / age / region                     |
+| `beginner_score`   | AI   | 1–10 ease of handling for first-time buyers                                |
+| `use_case_tags`    | AI   | JSON array: coastal / bluewater / racing / liveaboard / day sailing …      |
+| `safety_notes`     | AI   | Key safety positives and concerns for this listing                         |
+| `summary_en`       | AI   | Plain-English 3-sentence summary used in chat responses                    |
+| `embedding`        | calc | pgvector float[] — semantic search representation of this listing          |
 
 ---
 
 ## 4 — Scraping Priority Order
 
 ### Priority 1 — Must scrape on every pass
+
 > AI cannot function without these fields.
 
 - `make`, `model`, `year`, `price`, `currency`, `country`, `region`, `boat_type`
@@ -252,6 +261,7 @@ Generated asynchronously after a listing is first scraped. Claude Sonnet handles
 - `broker_name`, `source_url`, `is_active`
 
 ### Priority 2 — Scrape when available
+
 > Significantly improves AI quality and ratio completeness.
 
 - `LWL`, `draft`, `ballast_lbs`, `sail_area`, `rig_type` — enables full sailboat ratio suite
@@ -260,6 +270,7 @@ Generated asynchronously after a listing is first scraped. Claude Sonnet handles
 - `berths`, `heads`, `headroom_m`, `water_tank_l` — liveaboard suitability scoring
 
 ### Priority 3 — Enrich where possible
+
 > Best-in-class completeness and differentiation.
 
 - All spar dimensions (I, J, P, E) — enables precise sail area calculation
@@ -274,13 +285,13 @@ Generated asynchronously after a listing is first scraped. Claude Sonnet handles
 
 ### 5.1 Core Tables
 
-| Table | Purpose | Update Pattern |
-|---|---|---|
-| `boat_models` | One row per boat model. Static spec data. | Write once, rarely updated |
-| `boat_listings` | One row per listing per source. | Refreshed on every scrape pass |
-| `calculated_ratios` | One row per boat_model. Derived performance data. | Recomputed only if dimensions change |
-| `price_history` | Append-only price change events per listing. | Insert on every price delta detected |
-| `listing_photos` | Normalised photo records with per-photo AI analysis. | Insert on scrape, AI results added async |
+| Table               | Purpose                                              | Update Pattern                           |
+| ------------------- | ---------------------------------------------------- | ---------------------------------------- |
+| `boat_models`       | One row per boat model. Static spec data.            | Write once, rarely updated               |
+| `boat_listings`     | One row per listing per source.                      | Refreshed on every scrape pass           |
+| `calculated_ratios` | One row per boat_model. Derived performance data.    | Recomputed only if dimensions change     |
+| `price_history`     | Append-only price change events per listing.         | Insert on every price delta detected     |
+| `listing_photos`    | Normalised photo records with per-photo AI analysis. | Insert on scrape, AI results added async |
 
 ### 5.2 Key Design Rules
 
@@ -303,14 +314,14 @@ Generated asynchronously after a listing is first scraped. Claude Sonnet handles
 
 ## 6 — How This Data Feeds the AI
 
-| Query Stage | Data Used | Output |
-|---|---|---|
-| 1. Filter extraction | User natural language prompt | SQL WHERE clauses (price, type, LOA, region) |
-| 2. SQL filter | Core listing fields + dimensions | Candidate set of matching listings |
-| 3. Vector search | `embedding` column (pgvector) | Top-N semantically relevant listings |
-| 4. Context building | All fields + ratios + AI fields | Structured JSON context sent to LLM |
-| 5. AI reasoning | `summary_en`, ratios, `condition_score`, `price_delta_pct` | Conversational response with recommendations |
-| 6. Photo analysis | `listing_photos` URLs | `condition_score` + `condition_flags` (async) |
+| Query Stage          | Data Used                                                  | Output                                        |
+| -------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| 1. Filter extraction | User natural language prompt                               | SQL WHERE clauses (price, type, LOA, region)  |
+| 2. SQL filter        | Core listing fields + dimensions                           | Candidate set of matching listings            |
+| 3. Vector search     | `embedding` column (pgvector)                              | Top-N semantically relevant listings          |
+| 4. Context building  | All fields + ratios + AI fields                            | Structured JSON context sent to LLM           |
+| 5. AI reasoning      | `summary_en`, ratios, `condition_score`, `price_delta_pct` | Conversational response with recommendations  |
+| 6. Photo analysis    | `listing_photos` URLs                                      | `condition_score` + `condition_flags` (async) |
 
 ---
 
@@ -326,4 +337,4 @@ Generated asynchronously after a listing is first scraped. Claude Sonnet handles
 
 ---
 
-*NauticFinder.ai — Data Collection Plan — v1.0 — Confidential*
+_NauticFinder.ai — Data Collection Plan — v1.0 — Confidential_
